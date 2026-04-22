@@ -92,6 +92,7 @@ func NewRootCommand(info BuildInfo) *cobra.Command {
 	root.AddCommand(commands.NewCatalogCommand())
 	root.AddCommand(commands.NewDependenciesCommand())
 	root.AddCommand(commands.NewInterfaceCommand())
+	root.AddCommand(commands.NewComposeCommand())
 
 	return root
 }

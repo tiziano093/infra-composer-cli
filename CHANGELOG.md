@@ -118,3 +118,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `test/fixtures/schemas/valid_full.json` extended with an
   `aws_subnet` module wired to `aws_vpc.id` so reference handling has
   on-disk coverage.
+- `internal/terraform`: HCL stack generator built on
+  `hashicorp/hcl/v2/hclwrite`. `Plan(schema, opts)` resolves module
+  selection in deps-first order (DFS postorder), wires variable
+  references that resolve inside the selection, and surfaces
+  placeholder/missing-source warnings; ambiguous references fail with
+  `ErrAmbiguousReference`. `Generate(plan)` emits the five core files
+  (`providers.tf`, `variables.tf`, `locals.tf`, `main.tf`,
+  `outputs.tf`) using `this_<module>` naming and `<module>_<var>`
+  external variable / `<module>_<output>` stack output namespacing.
+  Module sources resolve via a pluggable `SourceResolver`
+  (`PlaceholderResolver` is the default; uses `ModuleEntry.Source` when
+  set, otherwise a `TODO: set module source` placeholder). Each
+  `GeneratedFile` carries a `SHA256Hex()` for dry-run summaries.
+- `compose` subcommand: `--schema`, `--modules` (space- or
+  comma-separated), `--output-dir`, `--dry-run`, `--force`,
+  `--format text|json`. Dry-run prints the planned files (path,
+  truncated sha256, byte count) plus plan warnings without touching
+  the filesystem; write mode materialises every file via tmp+rename
+  for atomic per-file replacement, and refuses to clobber any of the
+  five generated files in a non-empty `--output-dir` unless `--force`
+  is set. Errors map to `ExitModuleNotFound` (unknown module),
+  `ExitDependencyFailed` (cycle or ambiguous reference) and
+  `ExitInvalidArgs` (missing modules / output-dir).
