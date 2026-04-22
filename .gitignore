@@ -1,0 +1,30 @@
+# Build artifacts
+/bin/
+/build/
+*.exe
+*.dll
+*.dylib
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Go
+vendor/
+
+# Testing
+*.out
+*.test
+coverage.*
+
+# Local env
+.env
+.env.local
+
+# OS
+.DS_Store
+Thumbs.db
