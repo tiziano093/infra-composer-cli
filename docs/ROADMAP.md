@@ -120,7 +120,7 @@ make test
 | Catalog builder pipeline | Dev1 | 3d | Pending |
 | Terraform Registry API integration (mock) | Dev2 | 2d | Pending |
 | Catalog exporter (to schema.json) | Dev2 | 1.5d | Pending |
-| Module search + filtering | Dev1 | 2d | Pending |
+| Module search + filtering | Dev1 | 2d | ✅ Done (`internal/catalog/search.go`, AND logic, group/type filters, weighted scoring, fuzzy subsequence) |
 | `catalog build` command | Dev1 | 1d | Pending |
 | `catalog export` command | Dev2 | 0.5d | Pending |
 | `catalog list` command | Dev2 | 1d | Pending |

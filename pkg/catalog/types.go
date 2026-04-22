@@ -14,11 +14,13 @@ const SchemaVersion = internalcatalog.SchemaVersion
 
 // Re-exported data types (see internal/catalog for documentation).
 type (
-	Schema      = internalcatalog.Schema
-	ModuleEntry = internalcatalog.ModuleEntry
-	ModuleType  = internalcatalog.ModuleType
-	Variable    = internalcatalog.Variable
-	Output      = internalcatalog.Output
+	Schema        = internalcatalog.Schema
+	ModuleEntry   = internalcatalog.ModuleEntry
+	ModuleType    = internalcatalog.ModuleType
+	Variable      = internalcatalog.Variable
+	Output        = internalcatalog.Output
+	SearchOptions = internalcatalog.SearchOptions
+	SearchResult  = internalcatalog.SearchResult
 )
 
 // Re-exported ModuleType constants.
@@ -26,3 +28,7 @@ const (
 	ModuleTypeResource = internalcatalog.ModuleTypeResource
 	ModuleTypeData     = internalcatalog.ModuleTypeData
 )
+
+// Search filters and ranks modules in s according to opts.
+// See internal/catalog.Search for documentation.
+var Search = internalcatalog.Search

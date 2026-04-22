@@ -38,3 +38,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Test fixtures under `test/fixtures/schemas/` (valid minimal,
   valid full, malformed, missing provider, duplicate modules)
   and 94% coverage on `internal/catalog`.
+- `internal/catalog`: keyword search with AND logic over module
+  name/group/description, group + type filters, result limit,
+  weighted scoring (exact name > substring > group > description >
+  fuzzy subsequence) with stable name-ordered tie-breaking.
+- `pkg/catalog`: re-exported `Search`, `SearchOptions`,
+  `SearchResult`.
