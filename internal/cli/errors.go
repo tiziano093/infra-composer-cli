@@ -1,86 +1,38 @@
-// Package cli wires the Cobra command tree and provides the CLI-wide error
-// and exit-code framework. Domain packages return their own error types;
-// the CLI layer converts them to CLIError values for consistent UX.
+// Package cli wires the Cobra command tree. Error type and exit codes
+// live in internal/clierr to avoid an import cycle between cli and
+// commands; this file provides aliases so existing call sites keep
+// working.
 package cli
 
-import (
-	"errors"
-	"fmt"
-)
+import "github.com/tiziano093/infra-composer-cli/internal/clierr"
 
-// ExitCode is the process exit status returned by the CLI. Values follow the
-// table documented in docs/ARCHITECTURE.md (Error Handling Strategy).
-type ExitCode int
+// ExitCode mirrors clierr.ExitCode.
+type ExitCode = clierr.ExitCode
 
 const (
-	ExitSuccess           ExitCode = 0
-	ExitGeneric           ExitCode = 1
-	ExitInvalidArgs       ExitCode = 2
-	ExitFileNotFound      ExitCode = 3
-	ExitValidationFailed  ExitCode = 4
-	ExitModuleNotFound    ExitCode = 5
-	ExitDependencyFailed  ExitCode = 6
-	ExitGitFailed         ExitCode = 7
-	ExitTerraformFailed   ExitCode = 8
-	ExitNetworkError      ExitCode = 9
-	ExitPermissionDenied  ExitCode = 10
+	ExitSuccess          = clierr.ExitSuccess
+	ExitGeneric          = clierr.ExitGeneric
+	ExitInvalidArgs      = clierr.ExitInvalidArgs
+	ExitFileNotFound     = clierr.ExitFileNotFound
+	ExitValidationFailed = clierr.ExitValidationFailed
+	ExitModuleNotFound   = clierr.ExitModuleNotFound
+	ExitDependencyFailed = clierr.ExitDependencyFailed
+	ExitGitFailed        = clierr.ExitGitFailed
+	ExitTerraformFailed  = clierr.ExitTerraformFailed
+	ExitNetworkError     = clierr.ExitNetworkError
+	ExitPermissionDenied = clierr.ExitPermissionDenied
 )
 
-// CLIError is the canonical error type surfaced by commands. It carries a
-// stable exit code, a human-readable message, optional detail string, and
-// optional remediation suggestions printed to the user.
-type CLIError struct {
-	Code        ExitCode
-	Message     string
-	Details     string
-	Suggestions []string
-	Cause       error
-}
+// CLIError mirrors clierr.CLIError.
+type CLIError = clierr.CLIError
 
-// Error implements the error interface.
-func (e *CLIError) Error() string {
-	if e.Details != "" {
-		return fmt.Sprintf("%s: %s", e.Message, e.Details)
-	}
-	return e.Message
-}
+// New mirrors clierr.New.
+func New(code ExitCode, message string) *CLIError { return clierr.New(code, message) }
 
-// Unwrap exposes the wrapped cause for errors.Is / errors.As.
-func (e *CLIError) Unwrap() error { return e.Cause }
-
-// New builds a CLIError with the given exit code and message.
-func New(code ExitCode, message string) *CLIError {
-	return &CLIError{Code: code, Message: message}
-}
-
-// Wrap converts an arbitrary error to a CLIError, preserving the cause chain.
-// If err is already a *CLIError it is returned unchanged.
+// Wrap mirrors clierr.Wrap.
 func Wrap(code ExitCode, message string, err error) *CLIError {
-	if err == nil {
-		return New(code, message)
-	}
-	var ce *CLIError
-	if errors.As(err, &ce) {
-		return ce
-	}
-	return &CLIError{Code: code, Message: message, Details: err.Error(), Cause: err}
+	return clierr.Wrap(code, message, err)
 }
 
-// WithSuggestions returns a copy of the error annotated with remediation hints.
-func (e *CLIError) WithSuggestions(s ...string) *CLIError {
-	e.Suggestions = append(e.Suggestions, s...)
-	return e
-}
-
-// CodeOf extracts the exit code from any error. Non-CLIError values map to
-// ExitGeneric; nil maps to ExitSuccess.
-func CodeOf(err error) ExitCode {
-	if err == nil {
-		return ExitSuccess
-	}
-	var ce *CLIError
-	if errors.As(err, &ce) {
-		return ce.Code
-	}
-	return ExitGeneric
-}
+// CodeOf mirrors clierr.CodeOf.
+func CodeOf(err error) ExitCode { return clierr.CodeOf(err) }

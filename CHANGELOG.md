@@ -44,3 +44,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   fuzzy subsequence) with stable name-ordered tie-breaking.
 - `pkg/catalog`: re-exported `Search`, `SearchOptions`,
   `SearchResult`.
+- `internal/clierr`: extracted CLI error type and exit code constants
+  to a neutral package so subcommand implementations can build
+  CLIError values without importing `internal/cli` (which depends on
+  `internal/commands`). `internal/cli` keeps thin aliases for
+  backward compatibility.
+- `internal/commands`: shared `cliError` / `invalidArgs` helpers and
+  central mapping of `catalog.Load` failures (not-found, parse
+  error, validation error) to the matching CLIError exit codes.
+- `search` subcommand: positional keywords, `--schema/--group/
+  --type/--limit/--format` flags, falls back to `catalog.schema`
+  config value, table and JSON output.
+- `catalog` parent command with `validate [path]` subcommand:
+  reports either an OK summary (provider, version, module count)
+  or every validation issue in one pass (text or JSON), exits with
+  ExitValidationFailed when issues are found.

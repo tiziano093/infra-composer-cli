@@ -88,6 +88,8 @@ func NewRootCommand(info BuildInfo) *cobra.Command {
 		BuildTime: info.BuildTime,
 		GitCommit: info.GitCommit,
 	}))
+	root.AddCommand(commands.NewSearchCommand())
+	root.AddCommand(commands.NewCatalogCommand())
 
 	return root
 }

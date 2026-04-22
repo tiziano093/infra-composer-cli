@@ -124,8 +124,8 @@ make test
 | `catalog build` command | Dev1 | 1d | Pending |
 | `catalog export` command | Dev2 | 0.5d | Pending |
 | `catalog list` command | Dev2 | 1d | Pending |
-| `catalog validate` command | Dev1 | 1d | Pending |
-| `search` command | Dev1 | 1d | Pending |
+| `catalog validate` command | Dev1 | 1d | ✅ Done (`internal/commands/catalog.go`, text + JSON output, exits 4 on issues) |
+| `search` command | Dev1 | 1d | ✅ Done (`internal/commands/search.go`, table + JSON, group/type/limit filters) |
 | Integration tests + fixtures | QA | 3d | Pending |
 
 ### Deliverables
