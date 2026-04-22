@@ -165,7 +165,7 @@ The project is structured for 4-phase delivery over 8 weeks:
 
 - **Architecture details:** `docs/ARCHITECTURE.md`
 - **Coding standards:** `docs/DEVELOPMENT_GUIDELINES.md`
-- **Command structure:** `INFRA_COMPOSER_CLI_DESIGN.md` (Section 2)
+- **Command structure:** `docs/ARCHITECTURE.md` (CLI layer + example command structure)
 - **Implementation roadmap:** `docs/ROADMAP.md`
 - **Repository setup:** `docs/REPOSITORY_SETUP.md`
 - **Contributing:** `docs/CONTRIBUTING.md`
