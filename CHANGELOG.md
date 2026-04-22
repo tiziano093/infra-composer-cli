@@ -27,3 +27,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   subcommand, `version` (text and JSON output).
 - Unit tests for errors, logger, config hierarchy and version
   command (all green via `go test ./...`).
+- `internal/catalog`: schema types (`Schema`, `ModuleEntry`,
+  `Variable`, `Output`, `ModuleType`), JSON parser with
+  unknown-field rejection, file loader, and one-pass validator
+  reporting all issues with field paths.
+- `internal/catalog`: `ParseError` and `ValidationError` types,
+  plus `AsValidationError` helper for command-layer mapping.
+- `pkg/catalog`: public re-exports of the catalog data types and
+  `SchemaVersion` constant for downstream library consumers.
+- Test fixtures under `test/fixtures/schemas/` (valid minimal,
+  valid full, malformed, missing provider, duplicate modules)
+  and 94% coverage on `internal/catalog`.

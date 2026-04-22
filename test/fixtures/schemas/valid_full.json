@@ -1,0 +1,41 @@
+{
+  "schema_version": "1.0",
+  "provider": "hashicorp/aws",
+  "provider_version": "5.42.0",
+  "generated_at": "2026-04-22T10:30:00Z",
+  "modules": [
+    {
+      "name": "aws_vpc",
+      "type": "resource",
+      "group": "network",
+      "source": "github.com/example/aws-vpc",
+      "description": "Virtual Private Cloud",
+      "variables": [
+        {
+          "name": "cidr_block",
+          "type": "string",
+          "description": "IPv4 CIDR for the VPC",
+          "required": true
+        },
+        {
+          "name": "enable_dns",
+          "type": "bool",
+          "default": true,
+          "required": false
+        }
+      ],
+      "outputs": [
+        {"name": "id", "description": "VPC ID"},
+        {"name": "arn", "description": "VPC ARN"}
+      ]
+    },
+    {
+      "name": "aws_caller_identity",
+      "type": "data",
+      "group": "identity",
+      "outputs": [
+        {"name": "account_id"}
+      ]
+    }
+  ]
+}

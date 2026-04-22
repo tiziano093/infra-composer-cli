@@ -1,7 +1,7 @@
 # Infra-Composer CLI — Implementation Roadmap
 
 **Version:** 1.0  
-**Status:** Phase 1 — Complete; Phase 2 (Catalog Operations) pending  
+**Status:** Phase 1 — Complete; Phase 2 (Catalog Operations) in progress  
 **Duration:** 8 Weeks (2 weeks per phase)  
 **Last Updated:** 2026-04-22
 
@@ -116,7 +116,7 @@ make test
 
 | Task | Owner | Effort | Status |
 |------|-------|--------|--------|
-| Schema types + parsing | Dev1 | 2d | Pending |
+| Schema types + parsing | Dev1 | 2d | ✅ Done (`internal/catalog` schema/parse/validate, `pkg/catalog` re-exports, fixtures) |
 | Catalog builder pipeline | Dev1 | 3d | Pending |
 | Terraform Registry API integration (mock) | Dev2 | 2d | Pending |
 | Catalog exporter (to schema.json) | Dev2 | 1.5d | Pending |

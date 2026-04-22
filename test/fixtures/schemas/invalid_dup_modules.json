@@ -1,0 +1,9 @@
+{
+  "schema_version": "1.0",
+  "provider": "hashicorp/aws",
+  "provider_version": "5.42.0",
+  "modules": [
+    {"name": "aws_vpc", "type": "resource"},
+    {"name": "aws_vpc", "type": "resource"}
+  ]
+}
