@@ -59,3 +59,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   reports either an OK summary (provider, version, module count)
   or every validation issue in one pass (text or JSON), exits with
   ExitValidationFailed when issues are found.
+- `internal/catalog/registry`: pluggable registry `Client` interface
+  (DiscoverProvider, ListResources, GetResourceSchema), neutral DTOs,
+  and a JSON fixture-backed `FakeClient` used by `catalog build` and
+  the integration suite. Sentinel errors `ErrProviderNotFound` and
+  `ErrResourceNotFound` for precise error mapping.
+- `test/fixtures/registry/hashicorp/aws/provider.json` covering one
+  data source and two resources for builder / E2E tests.
+- `internal/catalog`: `Builder` + `Build()` pipeline (discover → list →
+  fetch → normalize → validate) with deterministic module ordering
+  (resources before data, alphabetical within group).
+- `internal/catalog`: `Export()` writes `schema.json` atomically
+  (tmp + rename) with 0644 permissions and a trailing newline; supports
+  both `Path` and `Dir` destinations.
+- `pkg/catalog`: re-exported `Builder`, `BuildOptions`, `ExportOptions`,
+  `NewBuilder`, `Export`, and `SchemaFileName`.
+- `catalog build --provider <addr> --output-dir <dir>` subcommand:
+  builds a fresh schema from the registry fixtures (configurable via
+  `--registry-dir`, default `./catalog/registry`), exports it, and
+  reports either a one-line summary or a JSON record. Errors map to
+  `ExitFileNotFound` (provider/resource missing) or
+  `ExitValidationFailed` (registry produced invalid catalog).
+- `catalog list [path]` subcommand: prints provider metadata plus a
+  module table (text) or a structured `entries` array (JSON), with an
+  optional `--group` filter.
+- `catalog export [path] --output <file|dir>` subcommand: re-serialises
+  a validated schema to a new location (file or directory) using the
+  canonical formatter; prints text or JSON summary.
+- End-to-end integration tests under `test/integration/` covering
+  build → validate → list → search → export against the fake registry,
+  including error-path exit codes.

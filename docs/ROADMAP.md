@@ -1,7 +1,7 @@
 # Infra-Composer CLI — Implementation Roadmap
 
 **Version:** 1.0  
-**Status:** Phase 1 — Complete; Phase 2 (Catalog Operations) in progress  
+**Status:** Phase 1 — Complete; Phase 2 — Complete; Phase 3 (Module Composition) ready to start  
 **Duration:** 8 Weeks (2 weeks per phase)  
 **Last Updated:** 2026-04-22
 
@@ -117,16 +117,16 @@ make test
 | Task | Owner | Effort | Status |
 |------|-------|--------|--------|
 | Schema types + parsing | Dev1 | 2d | ✅ Done (`internal/catalog` schema/parse/validate, `pkg/catalog` re-exports, fixtures) |
-| Catalog builder pipeline | Dev1 | 3d | Pending |
-| Terraform Registry API integration (mock) | Dev2 | 2d | Pending |
-| Catalog exporter (to schema.json) | Dev2 | 1.5d | Pending |
+| Catalog builder pipeline | Dev1 | 3d | ✅ Done (`internal/catalog/builder.go`, discover→list→fetch→normalize→validate, deterministic ordering) |
+| Terraform Registry API integration (mock) | Dev2 | 2d | ✅ Done (`internal/catalog/registry`, `Client` interface + `FakeClient` backed by JSON fixtures) |
+| Catalog exporter (to schema.json) | Dev2 | 1.5d | ✅ Done (`internal/catalog/exporter.go`, atomic tmp+rename, Path/Dir options) |
 | Module search + filtering | Dev1 | 2d | ✅ Done (`internal/catalog/search.go`, AND logic, group/type filters, weighted scoring, fuzzy subsequence) |
-| `catalog build` command | Dev1 | 1d | Pending |
-| `catalog export` command | Dev2 | 0.5d | Pending |
-| `catalog list` command | Dev2 | 1d | Pending |
+| `catalog build` command | Dev1 | 1d | ✅ Done (`internal/commands/catalog.go`, `--provider/--output-dir/--registry-dir`, text+JSON) |
+| `catalog export` command | Dev2 | 0.5d | ✅ Done (`internal/commands/catalog.go`, `[path] --output <file\|dir>`, text+JSON) |
+| `catalog list` command | Dev2 | 1d | ✅ Done (`internal/commands/catalog.go`, table+JSON, `--group` filter) |
 | `catalog validate` command | Dev1 | 1d | ✅ Done (`internal/commands/catalog.go`, text + JSON output, exits 4 on issues) |
 | `search` command | Dev1 | 1d | ✅ Done (`internal/commands/search.go`, table + JSON, group/type/limit filters) |
-| Integration tests + fixtures | QA | 3d | Pending |
+| Integration tests + fixtures | QA | 3d | ✅ Done (`test/integration/cli_e2e_test.go`, build→validate→list→search→export, error-path exit codes) |
 
 ### Deliverables
 

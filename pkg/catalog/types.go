@@ -21,6 +21,9 @@ type (
 	Output        = internalcatalog.Output
 	SearchOptions = internalcatalog.SearchOptions
 	SearchResult  = internalcatalog.SearchResult
+	BuildOptions  = internalcatalog.BuildOptions
+	Builder       = internalcatalog.Builder
+	ExportOptions = internalcatalog.ExportOptions
 )
 
 // Re-exported ModuleType constants.
@@ -29,6 +32,16 @@ const (
 	ModuleTypeData     = internalcatalog.ModuleTypeData
 )
 
+// Re-exported file/path constants.
+const SchemaFileName = internalcatalog.SchemaFileName
+
 // Search filters and ranks modules in s according to opts.
 // See internal/catalog.Search for documentation.
 var Search = internalcatalog.Search
+
+// NewBuilder constructs a Builder backed by the given registry client.
+// See internal/catalog.NewBuilder for documentation.
+var NewBuilder = internalcatalog.NewBuilder
+
+// Export serialises a Schema to disk. See internal/catalog.Export.
+var Export = internalcatalog.Export

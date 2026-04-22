@@ -1,0 +1,50 @@
+{
+  "namespace": "hashicorp",
+  "name": "aws",
+  "version": "5.42.0",
+  "resources": [
+    {
+      "name": "aws_vpc",
+      "kind": "resource",
+      "group": "network",
+      "source": "https://github.com/hashicorp/terraform-provider-aws",
+      "description": "Provides a VPC resource.",
+      "inputs": [
+        {"name": "cidr_block", "type": "string", "required": true, "description": "The IPv4 CIDR block for the VPC."},
+        {"name": "enable_dns_support", "type": "bool", "default": true},
+        {"name": "tags", "type": "map(string)"}
+      ],
+      "outputs": [
+        {"name": "id", "description": "The ID of the VPC."},
+        {"name": "arn"}
+      ]
+    },
+    {
+      "name": "aws_subnet",
+      "kind": "resource",
+      "group": "network",
+      "source": "https://github.com/hashicorp/terraform-provider-aws",
+      "description": "Provides a VPC subnet resource.",
+      "inputs": [
+        {"name": "vpc_id", "type": "string", "required": true},
+        {"name": "cidr_block", "type": "string", "required": true},
+        {"name": "availability_zone", "type": "string"}
+      ],
+      "outputs": [
+        {"name": "id"}
+      ]
+    },
+    {
+      "name": "aws_caller_identity",
+      "kind": "data",
+      "group": "iam",
+      "source": "https://github.com/hashicorp/terraform-provider-aws",
+      "description": "Use this data source to get the access to the effective Account ID.",
+      "outputs": [
+        {"name": "account_id"},
+        {"name": "arn"},
+        {"name": "user_id"}
+      ]
+    }
+  ]
+}
