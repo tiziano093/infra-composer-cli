@@ -107,6 +107,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   or a structured JSON node graph annotated with the parent edge.
   Errors map to `ExitModuleNotFound` (root not in catalog) or
   `ExitDependencyFailed` (cycle, with cycle path in suggestions).
+- `internal/catalog`: `ExtractInterface(schema, opts)` builds a
+  composer-facing view of a requested module subset, distinguishing
+  user-facing inputs from auto-wired inputs satisfied by another
+  selected module's output. Per-module + flattened (sorted) aggregate
+  views; supports `RequiredOnly` and `Full` modes.
+- `interface <modules...>` subcommand: `--schema`, `--required-only`,
+  `--full` (mutually exclusive), `--format text|json|yaml`. Adds YAML
+  output (gopkg.in/yaml.v3) reusing the JSON wire shape.
 - `test/fixtures/schemas/valid_full.json` extended with an
   `aws_subnet` module wired to `aws_vpc.id` so reference handling has
   on-disk coverage.
