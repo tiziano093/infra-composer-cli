@@ -2,7 +2,9 @@
 
 > Portable CLI for composing Terraform stacks from provider catalogs.
 
-**Status:** 🚧 Scaffolding — Phase 1 (Foundation) in progress. No functional commands yet.
+**Status:** 🚧 Phase 1 (Foundation) complete — Cobra CLI, Viper config,
+slog logging, error/exit-code framework and `version` subcommand are in
+place. Catalog/compose commands land in Phase 2+.
 
 ## Quick links
 
@@ -22,7 +24,13 @@ git clone https://github.com/tiziano093/infra-composer-cli.git
 cd infra-composer-cli
 make build
 ./bin/infra-composer --version
+./bin/infra-composer version --format json
 ```
+
+Configuration is resolved in this order (highest priority last):
+defaults → `~/.infra-composer/config.yaml` → `INFRA_COMPOSER_*`
+environment variables → CLI flags. See
+[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the full schema.
 
 ## Development
 

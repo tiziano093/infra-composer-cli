@@ -1,7 +1,7 @@
 # Infra-Composer CLI — Implementation Roadmap
 
 **Version:** 1.0  
-**Status:** Phase 1 — Scaffolding Complete; CLI implementation pending  
+**Status:** Phase 1 — Complete; Phase 2 (Catalog Operations) pending  
 **Duration:** 8 Weeks (2 weeks per phase)  
 **Last Updated:** 2026-04-22
 
@@ -45,11 +45,11 @@
 |------|-------|--------|--------|
 | Create GitHub repo + init Go module | DevOps | 1d | ✅ Done (Go module initialized; repo already local) |
 | Scaffold directory structure | Lead Dev | 1d | ✅ Done |
-| Implement Cobra root command | Dev1 | 2d | Pending (placeholder `main.go` with `--version`/`--help` only) |
-| Config system (env vars + YAML) | Dev1 | 2d | Pending |
-| Structured logging framework | Dev2 | 1d | Pending |
-| Error handling + exit codes | Dev2 | 1.5d | Pending |
-| Unit tests (config, logging, errors) | Dev1 | 2d | Pending |
+| Implement Cobra root command | Dev1 | 2d | ✅ Done (`internal/cli/root.go` + persistent flags) |
+| Config system (env vars + YAML) | Dev1 | 2d | ✅ Done (`internal/config`, Viper hierarchy) |
+| Structured logging framework | Dev2 | 1d | ✅ Done (`internal/output/log.go`, slog text/json) |
+| Error handling + exit codes | Dev2 | 1.5d | ✅ Done (`internal/cli/errors.go`, codes 1–10) |
+| Unit tests (config, logging, errors) | Dev1 | 2d | ✅ Done (errors, logger, config hierarchy, version cmd) |
 | Makefile + build scripts | DevOps | 1d | ✅ Done (Makefile + `scripts/release.sh`) |
 | GitHub Actions test workflow | DevOps | 1.5d | ✅ Done (test, lint, release, docker workflows) |
 | Initial README + setup docs | Tech Writer | 1d | 🟡 Partial (README stub; full user docs in Phase 4) |
@@ -500,4 +500,19 @@ Phase 1  (no blockers)
 - ✅ Stub `main.go` builds and runs: `./bin/infra-composer --version` works
 
 **Next:** Cobra root command, Viper config, structured logging, error/exit-code framework, unit tests.
+
+### 2026-04-22 — Phase 1 Foundation Complete
+- ✅ Dependencies added: `cobra`, `viper`, `testify` (`go.mod` bumped to Go 1.23)
+- ✅ `internal/cli/errors.go`: `CLIError` + `ExitCode` constants (1–10) per ARCHITECTURE.md
+- ✅ `internal/cli/root.go`: Cobra root with persistent flags (`--config`, `--log-level`, `--log-format`, `--format`, `--verbose`, `--quiet`); flag overrides applied on top of config; `cli.Execute` returns the right exit code
+- ✅ `internal/config/{defaults.go,config.go}`: Viper-backed hierarchy defaults → `~/.infra-composer/config.yaml` → `INFRA_COMPOSER_*` env → flags; explicit `--config` errors hard on missing file, default path is best-effort
+- ✅ `internal/output/log.go`: slog logger (text/json), `ParseLevel`, quiet mode forces `error`
+- ✅ `internal/commands/runtime.go`: shared `Runtime` injected via `context`
+- ✅ `internal/commands/version.go`: `version` subcommand with text + JSON output and a local `--format` override
+- ✅ `cmd/infra-composer/main.go`: minimal entry, delegates to `cli.Execute` with build-time vars
+- ✅ Unit tests: errors mapping, log levels + handler selection, config hierarchy (defaults / env / file / file+env / explicit-missing), version command (text / JSON / local flag override) — all green
+- ✅ Smoke tests on built binary: `--help`, `--version`, `version`, `version --format json`, exit code `2` on unknown flag
+- ⚠️ `golangci-lint` not installed locally; CI workflow remains the source of truth for lint
+
+**Next:** Phase 2 — catalog schema parsing, builder pipeline, exporter, searcher, and the `catalog` / `search` commands.
 
