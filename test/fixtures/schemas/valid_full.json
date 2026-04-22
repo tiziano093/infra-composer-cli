@@ -36,6 +36,24 @@
       "outputs": [
         {"name": "account_id"}
       ]
+    },
+    {
+      "name": "aws_subnet",
+      "type": "resource",
+      "group": "network",
+      "description": "VPC subnet",
+      "variables": [
+        {
+          "name": "vpc_id",
+          "type": "string",
+          "required": true,
+          "references": [{"module": "aws_vpc", "output": "id"}]
+        },
+        {"name": "cidr_block", "type": "string", "required": true}
+      ],
+      "outputs": [
+        {"name": "id"}
+      ]
     }
   ]
 }

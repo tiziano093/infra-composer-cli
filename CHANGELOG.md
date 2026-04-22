@@ -89,3 +89,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - End-to-end integration tests under `test/integration/` covering
   build → validate → list → search → export against the fake registry,
   including error-path exit codes.
+- `internal/catalog`: `Variable.References` field
+  (`[]VariableReference{Module, Output}`) declaring explicit
+  cross-module dependencies; validator resolves each reference to an
+  existing module + output, rejects self-references and unknown
+  targets, and reports issues alongside the rest of the schema in a
+  single pass. Re-exported via `pkg/catalog`.
+- `internal/catalog`: dependency graph (`BuildGraph`, `Graph`,
+  `Edge`, `DependencyNode`) built from `Variable.References` with
+  deterministic node and edge order, 3-colour DFS cycle detector
+  returning every elementary cycle in canonical form, and
+  depth-bounded `Resolve` traversal that returns a typed
+  `*CycleError` (carrying the cycle path) or `ErrUnknownModule` for
+  invalid roots.
+- `dependencies <module>` subcommand: `--schema`, `--depth`,
+  `--check-cycles`, `--format text|json`. Renders an ASCII tree (text)
+  or a structured JSON node graph annotated with the parent edge.
+  Errors map to `ExitModuleNotFound` (root not in catalog) or
+  `ExitDependencyFailed` (cycle, with cycle path in suggestions).
+- `test/fixtures/schemas/valid_full.json` extended with an
+  `aws_subnet` module wired to `aws_vpc.id` so reference handling has
+  on-disk coverage.

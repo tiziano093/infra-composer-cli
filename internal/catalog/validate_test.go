@@ -154,3 +154,40 @@ func TestValidationError_ErrorString(t *testing.T) {
 		"catalog validation failed: provider: is required; schema is nil",
 		ve.Error())
 }
+
+func TestValidate_References_Valid(t *testing.T) {
+	t.Parallel()
+	s := validSchema()
+	s.Modules = append(s.Modules, ModuleEntry{
+		Name: "aws_subnet", Type: ModuleTypeResource,
+		Variables: []Variable{{
+			Name: "vpc_id", Type: "string", Required: true,
+			References: []VariableReference{{Module: "aws_vpc", Output: "id"}},
+		}},
+		Outputs: []Output{{Name: "id"}},
+	})
+	require.NoError(t, s.Validate())
+}
+
+func TestValidate_References_Errors(t *testing.T) {
+	t.Parallel()
+	s := validSchema()
+	s.Modules = append(s.Modules, ModuleEntry{
+		Name: "aws_subnet", Type: ModuleTypeResource,
+		Variables: []Variable{
+			{Name: "v_unknown_mod", Type: "string", References: []VariableReference{{Module: "missing", Output: "id"}}},
+			{Name: "v_unknown_out", Type: "string", References: []VariableReference{{Module: "aws_vpc", Output: "nope"}}},
+			{Name: "v_self", Type: "string", References: []VariableReference{{Module: "aws_subnet", Output: "id"}}},
+			{Name: "v_blank", Type: "string", References: []VariableReference{{Module: "", Output: ""}}},
+		},
+		Outputs: []Output{{Name: "id"}},
+	})
+	err := s.Validate()
+	require.Error(t, err)
+	joined := strings.Join(fieldsOf(err), " | ")
+	assert.Contains(t, joined, `unknown module "missing"`)
+	assert.Contains(t, joined, `module "aws_vpc" has no output "nope"`)
+	assert.Contains(t, joined, `self-reference to "aws_subnet"`)
+	assert.Contains(t, joined, "references[0].module: is required")
+	assert.Contains(t, joined, "references[0].output: is required")
+}

@@ -105,6 +105,25 @@ type Variable struct {
 
 	// Sensitive marks the variable as containing secret material.
 	Sensitive bool `json:"sensitive,omitempty"`
+
+	// References declares cross-module dependencies: the variable's value
+	// is expected to be wired (typically via a `locals` block in the
+	// composed stack) from the listed module outputs in the same catalog.
+	// Empty means "no inter-module dependency".
+	References []VariableReference `json:"references,omitempty"`
+}
+
+// VariableReference points to a single output of another module in the
+// same catalog. It is the schema-level mechanism through which
+// infra-composer infers the dependency graph used by `dependencies` and
+// `compose`.
+type VariableReference struct {
+	// Module is the target module name (must exist in the same Schema
+	// and must differ from the referencing module).
+	Module string `json:"module"`
+
+	// Output is the name of the output on the target module to wire in.
+	Output string `json:"output"`
 }
 
 // Output describes a Terraform output value.

@@ -57,9 +57,27 @@ func (s *Schema) Validate() error {
 	}
 
 	seenModule := make(map[string]int, len(s.Modules))
+	// Pre-index output names per module so cross-module references can
+	// be resolved in the same single pass without revisiting modules.
+	outputsByModule := make(map[string]map[string]struct{}, len(s.Modules))
+	for _, m := range s.Modules {
+		if m.Name == "" || !identRe.MatchString(m.Name) {
+			continue
+		}
+		if _, dup := outputsByModule[m.Name]; dup {
+			continue
+		}
+		set := make(map[string]struct{}, len(m.Outputs))
+		for _, o := range m.Outputs {
+			if o.Name != "" {
+				set[o.Name] = struct{}{}
+			}
+		}
+		outputsByModule[m.Name] = set
+	}
 	for i, m := range s.Modules {
 		base := fmt.Sprintf("modules[%d]", i)
-		validateModule(v, base, m, seenModule, i)
+		validateModule(v, base, m, seenModule, i, outputsByModule)
 	}
 
 	if len(v.issues) == 0 {
@@ -68,7 +86,7 @@ func (s *Schema) Validate() error {
 	return &ValidationError{Issues: v.issues}
 }
 
-func validateModule(v *validator, base string, m ModuleEntry, seen map[string]int, idx int) {
+func validateModule(v *validator, base string, m ModuleEntry, seen map[string]int, idx int, outputsByModule map[string]map[string]struct{}) {
 	switch {
 	case m.Name == "":
 		v.add(base+".name", "is required")
@@ -92,7 +110,7 @@ func validateModule(v *validator, base string, m ModuleEntry, seen map[string]in
 	seenVar := make(map[string]struct{}, len(m.Variables))
 	for j, vv := range m.Variables {
 		vbase := fmt.Sprintf("%s.variables[%d]", base, j)
-		validateVariable(v, vbase, vv, seenVar)
+		validateVariable(v, vbase, vv, seenVar, m.Name, outputsByModule)
 	}
 
 	seenOut := make(map[string]struct{}, len(m.Outputs))
@@ -102,7 +120,7 @@ func validateModule(v *validator, base string, m ModuleEntry, seen map[string]in
 	}
 }
 
-func validateVariable(v *validator, base string, x Variable, seen map[string]struct{}) {
+func validateVariable(v *validator, base string, x Variable, seen map[string]struct{}, moduleName string, outputsByModule map[string]map[string]struct{}) {
 	switch {
 	case x.Name == "":
 		v.add(base+".name", "is required")
@@ -122,6 +140,46 @@ func validateVariable(v *validator, base string, x Variable, seen map[string]str
 
 	if x.Required && x.Default != nil {
 		v.add(base+".default", "must be omitted when required is true")
+	}
+
+	for k, ref := range x.References {
+		rbase := fmt.Sprintf("%s.references[%d]", base, k)
+		validateReference(v, rbase, ref, moduleName, outputsByModule)
+	}
+}
+
+func validateReference(v *validator, base string, ref VariableReference, owner string, outputsByModule map[string]map[string]struct{}) {
+	switch {
+	case ref.Module == "":
+		v.add(base+".module", "is required")
+	case !identRe.MatchString(ref.Module):
+		v.addf(base+".module", "invalid identifier %q", ref.Module)
+	case owner != "" && ref.Module == owner:
+		v.addf(base+".module", "self-reference to %q is not allowed", ref.Module)
+	}
+
+	switch {
+	case ref.Output == "":
+		v.add(base+".output", "is required")
+	case !identRe.MatchString(ref.Output):
+		v.addf(base+".output", "invalid identifier %q", ref.Output)
+	}
+
+	// Only attempt cross-checks when both fields look syntactically sound
+	// and we are not already pointing at the owner module.
+	if ref.Module == "" || ref.Output == "" || !identRe.MatchString(ref.Module) || !identRe.MatchString(ref.Output) {
+		return
+	}
+	if owner != "" && ref.Module == owner {
+		return
+	}
+	outs, ok := outputsByModule[ref.Module]
+	if !ok {
+		v.addf(base+".module", "unknown module %q", ref.Module)
+		return
+	}
+	if _, ok := outs[ref.Output]; !ok {
+		v.addf(base+".output", "module %q has no output %q", ref.Module, ref.Output)
 	}
 }
 

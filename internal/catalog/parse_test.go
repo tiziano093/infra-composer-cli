@@ -52,7 +52,7 @@ func TestParse_ValidFull_RoundTrip(t *testing.T) {
 
 	s, err := Parse(f)
 	require.NoError(t, err)
-	require.Len(t, s.Modules, 2)
+	require.Len(t, s.Modules, 3)
 
 	vpc := s.Modules[0]
 	assert.Equal(t, "aws_vpc", vpc.Name)
@@ -65,6 +65,13 @@ func TestParse_ValidFull_RoundTrip(t *testing.T) {
 
 	identity := s.Modules[1]
 	assert.Equal(t, ModuleTypeData, identity.Type)
+
+	subnet := s.Modules[2]
+	assert.Equal(t, "aws_subnet", subnet.Name)
+	require.Len(t, subnet.Variables, 2)
+	require.Len(t, subnet.Variables[0].References, 1)
+	assert.Equal(t, "aws_vpc", subnet.Variables[0].References[0].Module)
+	assert.Equal(t, "id", subnet.Variables[0].References[0].Output)
 }
 
 func TestParse_NilReader(t *testing.T) {
