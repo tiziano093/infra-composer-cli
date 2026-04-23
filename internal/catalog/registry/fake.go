@@ -176,21 +176,10 @@ func convertResource(r fakeResourceJSON) *ResourceSchema {
 		Description: r.Description,
 	}
 	for _, i := range r.Inputs {
-		rs.Inputs = append(rs.Inputs, InputSpec{
-			Name:        i.Name,
-			Type:        i.Type,
-			Description: i.Description,
-			Default:     i.Default,
-			Required:    i.Required,
-			Sensitive:   i.Sensitive,
-		})
+		rs.Inputs = append(rs.Inputs, InputSpec(i))
 	}
 	for _, o := range r.Outputs {
-		rs.Outputs = append(rs.Outputs, OutputSpec{
-			Name:        o.Name,
-			Description: o.Description,
-			Sensitive:   o.Sensitive,
-		})
+		rs.Outputs = append(rs.Outputs, OutputSpec(o))
 	}
 	return rs
 }

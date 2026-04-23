@@ -3,7 +3,6 @@ package registry
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -374,10 +373,5 @@ func indexEqual(s string) int {
 	}
 	return -1
 }
-
-// errBinaryMissing is returned by the helper used in tests to assert
-// that a missing terraform binary surfaces a friendly error rather than
-// a nil-pointer panic somewhere in tfexec.
-var errBinaryMissing = errors.New("terraform binary not found on PATH; install terraform >=1.0 or pass --terraform-binary")
 
 var _ = dumpJSONForDebug // silence "unused" until callers wire it in.

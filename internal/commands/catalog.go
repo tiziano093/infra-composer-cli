@@ -582,7 +582,7 @@ func exportOptionsFor(output string) (catalog.ExportOptions, error) {
 		return catalog.ExportOptions{}, fmt.Errorf("--output is required")
 	}
 	if strings.HasSuffix(output, string(os.PathSeparator)) || strings.HasSuffix(output, "/") {
-		return catalog.ExportOptions{Dir: strings.TrimRight(output, "/"+string(os.PathSeparator))}, nil
+		return catalog.ExportOptions{Dir: filepath.Clean(output)}, nil
 	}
 	if info, err := os.Stat(output); err == nil && info.IsDir() {
 		return catalog.ExportOptions{Dir: output}, nil
