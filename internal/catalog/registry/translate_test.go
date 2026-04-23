@@ -137,13 +137,13 @@ func TestTranslateSchema_NilBlockSafe(t *testing.T) {
 
 func TestInferGroup(t *testing.T) {
 	cases := map[string]string{
-		"aws_vpc":             "network",
-		"aws_subnet":          "network",
-		"aws_instance":        "compute",
-		"aws_s3_bucket":       "storage",
-		"aws_iam_role":        "iam",
-		"aws_cloudwatch_log":  "observability",
-		"random_string":       "",
+		"aws_vpc":            "network",
+		"aws_subnet":         "network",
+		"aws_instance":       "compute",
+		"aws_s3_bucket":      "storage",
+		"aws_iam_role":       "iam",
+		"aws_cloudwatch_log": "observability",
+		"random_string":      "",
 	}
 	for name, want := range cases {
 		if got := inferGroup(name); got != want {

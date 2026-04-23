@@ -81,12 +81,12 @@ func TestRemoteURL_NotARepo(t *testing.T) {
 
 func TestNormalizeRemoteURL(t *testing.T) {
 	cases := map[string]string{
-		"git@github.com:acme/widgets.git":      "https://github.com/acme/widgets",
-		"git@github.com:acme/widgets":          "https://github.com/acme/widgets",
+		"git@github.com:acme/widgets.git":       "https://github.com/acme/widgets",
+		"git@github.com:acme/widgets":           "https://github.com/acme/widgets",
 		"ssh://git@github.com/acme/widgets.git": "https://github.com/acme/widgets",
-		"https://github.com/acme/widgets.git":  "https://github.com/acme/widgets",
-		"https://github.com/acme/widgets":      "https://github.com/acme/widgets",
-		"":                                     "",
+		"https://github.com/acme/widgets.git":   "https://github.com/acme/widgets",
+		"https://github.com/acme/widgets":       "https://github.com/acme/widgets",
+		"":                                      "",
 	}
 	for in, want := range cases {
 		if got := NormalizeRemoteURL(in); got != want {

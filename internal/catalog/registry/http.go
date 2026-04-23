@@ -71,14 +71,14 @@ func NewHTTPDiscovery(opts ...HTTPDiscoveryOption) *HTTPDiscovery {
 // ProviderDownload describes how to fetch a provider binary for a given
 // operating system and architecture from the registry.
 type ProviderDownload struct {
-	OS              string
-	Arch            string
-	Filename        string
-	DownloadURL     string
-	ShasumsURL      string
-	ShasumsSigURL   string
-	Shasum          string
-	Protocols       []string
+	OS            string
+	Arch          string
+	Filename      string
+	DownloadURL   string
+	ShasumsURL    string
+	ShasumsSigURL string
+	Shasum        string
+	Protocols     []string
 }
 
 // providerVersionsResponse mirrors the relevant portion of
@@ -86,7 +86,7 @@ type ProviderDownload struct {
 type providerVersionsResponse struct {
 	ID       string `json:"id"`
 	Versions []struct {
-		Version   string `json:"version"`
+		Version   string   `json:"version"`
 		Protocols []string `json:"protocols"`
 		Platforms []struct {
 			OS   string `json:"os"`
@@ -98,14 +98,14 @@ type providerVersionsResponse struct {
 // providerDownloadResponse mirrors the relevant portion of
 // GET /v1/providers/{ns}/{name}/{version}/download/{os}/{arch}.
 type providerDownloadResponse struct {
-	Protocols          []string `json:"protocols"`
-	OS                 string   `json:"os"`
-	Arch               string   `json:"arch"`
-	Filename           string   `json:"filename"`
-	DownloadURL        string   `json:"download_url"`
-	ShasumsURL         string   `json:"shasums_url"`
-	ShasumsSignatureURL string  `json:"shasums_signature_url"`
-	Shasum             string   `json:"shasum"`
+	Protocols           []string `json:"protocols"`
+	OS                  string   `json:"os"`
+	Arch                string   `json:"arch"`
+	Filename            string   `json:"filename"`
+	DownloadURL         string   `json:"download_url"`
+	ShasumsURL          string   `json:"shasums_url"`
+	ShasumsSignatureURL string   `json:"shasums_signature_url"`
+	Shasum              string   `json:"shasum"`
 }
 
 // ResolveProvider returns canonical ProviderInfo for the given address,

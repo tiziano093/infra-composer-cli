@@ -110,14 +110,14 @@ func TestHTTPDiscovery_ResolveProvider_BadAddress(t *testing.T) {
 func TestHTTPDiscovery_DownloadInfo_Success(t *testing.T) {
 	srv := stubRegistry(t, nil, map[string]any{
 		"/v1/providers/hashicorp/random/3.6.0/download/linux/amd64": map[string]any{
-			"protocols":              []string{"5.0"},
-			"os":                     "linux",
-			"arch":                   "amd64",
-			"filename":               "terraform-provider-random_3.6.0_linux_amd64.zip",
-			"download_url":           "https://example.com/random_3.6.0_linux_amd64.zip",
-			"shasums_url":            "https://example.com/random_3.6.0_SHA256SUMS",
-			"shasums_signature_url":  "https://example.com/random_3.6.0_SHA256SUMS.sig",
-			"shasum":                 "deadbeef",
+			"protocols":             []string{"5.0"},
+			"os":                    "linux",
+			"arch":                  "amd64",
+			"filename":              "terraform-provider-random_3.6.0_linux_amd64.zip",
+			"download_url":          "https://example.com/random_3.6.0_linux_amd64.zip",
+			"shasums_url":           "https://example.com/random_3.6.0_SHA256SUMS",
+			"shasums_signature_url": "https://example.com/random_3.6.0_SHA256SUMS.sig",
+			"shasum":                "deadbeef",
 		},
 	})
 	d := NewHTTPDiscovery(WithBaseURL(srv.URL))
