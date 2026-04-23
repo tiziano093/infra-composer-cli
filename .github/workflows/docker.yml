@@ -1,9 +1,7 @@
-name: Docker
+name: Docker (legacy — superseded by release-please.yml)
 
 on:
-  push:
-    tags:
-      - 'v*'
+  workflow_dispatch:
 
 permissions:
   contents: read

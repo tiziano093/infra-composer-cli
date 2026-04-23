@@ -1,9 +1,7 @@
-name: Release
+name: Release (legacy — superseded by release-please.yml)
 
 on:
-  push:
-    tags:
-      - 'v*'
+  workflow_dispatch:
 
 permissions:
   contents: write

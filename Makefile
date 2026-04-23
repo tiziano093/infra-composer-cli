@@ -2,7 +2,7 @@
 
 BINARY_NAME := infra-composer
 PKG         := github.com/tiziano093/infra-composer-cli
-VERSION     ?= v0.1.0-dev
+VERSION     ?= v1.0.0
 BUILD_TIME  := $(shell date -u '+%Y-%m-%dT%H:%M:%SZ')
 GIT_COMMIT  := $(shell git rev-parse --short HEAD 2>/dev/null || echo "none")
 
