@@ -46,11 +46,16 @@ brews:
   - name: infra-composer
     repository:
       owner: tiziano093
-      name: homebrew-infra-composer
-      token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
+      name: infra-composer-cli
+      token: "{{ .Env.GITHUB_TOKEN }}"
+      branch: main
+      pull_request:
+        enabled: false
+    directory: Formula
     commit_author:
       name: goreleaser
       email: goreleaser@infra-composer.dev
+    commit_msg_template: "chore: update Homebrew formula for {{ .Tag }}"
     homepage: https://github.com/tiziano093/infra-composer-cli
     description: Portable CLI for composing Terraform stacks from provider catalogs.
     license: Apache-2.0

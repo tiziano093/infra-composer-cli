@@ -33,7 +33,7 @@ Checksums are published in `checksums.txt` on every release.
 ## Option 2 — Homebrew (macOS / Linux)
 
 ```bash
-brew tap tiziano093/infra-composer
+brew tap tiziano093/infra-composer-cli
 brew install infra-composer
 ```
 
