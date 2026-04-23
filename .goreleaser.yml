@@ -42,6 +42,23 @@ checksum:
 snapshot:
   name_template: "{{ incpatch .Version }}-next"
 
+brews:
+  - name: infra-composer
+    repository:
+      owner: tiziano093
+      name: homebrew-infra-composer
+      token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
+    commit_author:
+      name: goreleaser
+      email: goreleaser@infra-composer.dev
+    homepage: https://github.com/tiziano093/infra-composer-cli
+    description: Portable CLI for composing Terraform stacks from provider catalogs.
+    license: Apache-2.0
+    test: |
+      system "#{bin}/infra-composer", "--version"
+    install: |
+      bin.install "infra-composer"
+
 changelog:
   sort: asc
   filters:

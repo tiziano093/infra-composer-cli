@@ -42,6 +42,12 @@ release: ## Build cross-platform release binaries
 docker: ## Build Docker image
 	docker build -t ghcr.io/tiziano093/$(BINARY_NAME):$(VERSION) .
 
+smoke: build ## Run smoke tests against the local binary
+	bash scripts/smoke_test.sh
+
+bench: ## Run performance benchmarks
+	go test ./test/bench/... -bench=. -benchmem -benchtime=5x -run='^$$'
+
 docs: ## Generate CLI reference docs
 	go run ./cmd/infra-composer/_docs
 

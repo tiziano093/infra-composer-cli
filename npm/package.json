@@ -1,0 +1,25 @@
+{
+  "name": "@tiziano093/infra-composer",
+  "version": "1.0.0",
+  "description": "Portable CLI for composing Terraform stacks from provider catalogs.",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/tiziano093/infra-composer-cli.git"
+  },
+  "bin": {
+    "infra-composer": "bin/infra-composer"
+  },
+  "scripts": {
+    "postinstall": "node install.js"
+  },
+  "engines": {
+    "node": ">=16"
+  },
+  "os": ["linux", "darwin", "win32"],
+  "cpu": ["x64", "arm64"],
+  "files": [
+    "install.js",
+    "bin/"
+  ]
+}

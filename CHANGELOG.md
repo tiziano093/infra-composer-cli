@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.0.0] — 2026-04-24
 
 ### Added
 - Initial repository scaffolding (Phase 1).
@@ -141,3 +141,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   is set. Errors map to `ExitModuleNotFound` (unknown module),
   `ExitDependencyFailed` (cycle or ambiguous reference) and
   `ExitInvalidArgs` (missing modules / output-dir).
+- `internal/catalog/registry`: real Terraform CLI source (`terraform_exec.go`)
+  shells out to `terraform providers schema -json`, caches raw output on disk,
+  supports `--include`/`--exclude` glob patterns. HTTP registry client (`http.go`)
+  hits registry.terraform.io for version listing. Schema translator (`translate.go`)
+  normalises provider JSON schema into `catalog.Schema`.
+- `internal/commands/interactive`: guided multi-step workflow (survey/v2) —
+  provider choice, version pinning, resource multi-select, catalog write,
+  optional compose trigger. Gated behind `--output-dir` (required).
+- `internal/terraform/rootstack`: root-stack HCL generator emitting
+  `providers.tf`, `versions.tf`, `variables.tf`, `locals.tf`, `main.tf`,
+  `outputs.tf` that compose the per-module folders.
+- `internal/git`: remote detection (`remote.go`) and Git tag listing (`tags.go`)
+  for source-URL resolution in generated stacks.
+- `test/integration/registry_http_test.go`: E2E registry integration test
+  (gated by `INFRA_COMPOSER_E2E=1`, targets `hashicorp/random`).
+- `docs/INTERACTIVE.md`, `docs/REGISTRY.md`: feature documentation.
+
+### Changed
+- `compose` subcommand extended with `--root-stack` flag (default `true`) to
+  control whether the top-level stack files are emitted.
+- `internal/terraform/{generator,plan,naming,types}` refactored: `source.go`
+  deleted; source resolution moved into the registry package.
+- `pkg/catalog/types.go` extended with registry-related public types.
+- `.gitignore`: generated `catalog/` and `infrastructure/` directories excluded.
+
+### Distribution (Phase 4)
+- Cross-platform binaries via `scripts/release.sh` and GoReleaser.
+- `INSTALL.md`, `QUICKSTART.md`, `CLI.md`, `CONFIG.md`, `PIPELINE.md` added.
+- Homebrew tap configuration added to `.goreleaser.yml`.
+- npm wrapper package added under `npm/`.
+- GitHub issue and PR templates added.
+
+[1.0.0]: https://github.com/tiziano093/infra-composer-cli/releases/tag/v1.0.0

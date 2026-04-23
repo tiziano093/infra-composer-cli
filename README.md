@@ -2,21 +2,21 @@
 
 > Portable CLI for composing Terraform stacks from provider catalogs.
 
-**Status:** 🚧 Phases 1–3 complete — CLI scaffolding, catalog operations
-(build/search/validate/list), module composition (compose/dependencies/
-interface) **and** real-registry support via the `terraform` CLI plus a
-guided `interactive` workflow are in place. Phase 4 (distribution) next.
+**Status:** v1.0.0 — all 4 phases complete and ready for release.
 
-## Quick links
+## Documentation
 
-- [Project Overview](docs/PROJECT_OVERVIEW.md)
-- [Architecture](docs/ARCHITECTURE.md)
-- [Registry sources](docs/REGISTRY.md)
-- [Interactive mode](docs/INTERACTIVE.md)
-- [Roadmap](docs/ROADMAP.md)
-- [Repository Setup](docs/REPOSITORY_SETUP.md)
-- [Development Guidelines](docs/DEVELOPMENT_GUIDELINES.md)
-- [Contributing](docs/CONTRIBUTING.md)
+| Guide | Description |
+|-------|-------------|
+| [INSTALL.md](INSTALL.md) | Binary, Homebrew, npm, Docker, source |
+| [QUICKSTART.md](QUICKSTART.md) | 5-minute tutorial |
+| [CLI.md](CLI.md) | Full command reference |
+| [CONFIG.md](CONFIG.md) | Config file, env vars, CI usage |
+| [PIPELINE.md](PIPELINE.md) | GitHub Actions & Azure Pipelines examples |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Internal design |
+| [docs/REGISTRY.md](docs/REGISTRY.md) | Registry source flags |
+| [docs/INTERACTIVE.md](docs/INTERACTIVE.md) | Guided interactive workflow |
+| [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md) | Developer guide |
 
 ## Build from source
 
@@ -58,8 +58,11 @@ environment variables → CLI flags. See
 ```bash
 make help     # list available targets
 make test     # run tests with coverage
+make smoke    # smoke tests against local binary
+make bench    # performance benchmarks
 make lint     # run golangci-lint
 make fmt      # format code
+make release  # cross-platform binaries in ./build/
 ```
 
 ## License
