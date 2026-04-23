@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/tiziano093/infra-composer-cli/internal/catalog"
 	"github.com/tiziano093/infra-composer-cli/internal/clierr"
 	"github.com/tiziano093/infra-composer-cli/internal/config"
 )
@@ -39,6 +40,14 @@ func writeSchema(t *testing.T, body string) string {
 // runtimeCtx returns a context carrying a Runtime suitable for command
 // execution under test. The schema path is plumbed via Config so we can
 // exercise the config-fallback code path.
+// schemaFromJSON parses a catalog Schema from a JSON string for use in tests.
+func schemaFromJSON(t *testing.T, body string) *catalog.Schema {
+	t.Helper()
+	var s catalog.Schema
+	require.NoError(t, json.Unmarshal([]byte(body), &s))
+	return &s
+}
+
 func runtimeCtx(stdout, stderr *bytes.Buffer, cfg *config.Config) context.Context {
 	if cfg == nil {
 		cfg = &config.Config{}

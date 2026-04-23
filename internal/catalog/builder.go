@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/tiziano093/infra-composer-cli/internal/catalog/registry"
@@ -146,13 +147,23 @@ func normalizeModule(rs *registry.ResourceSchema) ModuleEntry {
 		}
 	}
 	if len(rs.Outputs) > 0 {
-		m.Outputs = make([]Output, len(rs.Outputs))
-		for i, o := range rs.Outputs {
-			m.Outputs[i] = Output{
+		filtered := make([]Output, 0, len(rs.Outputs))
+		for _, o := range rs.Outputs {
+			// Dotted names (e.g. "timeouts.read") are nested sub-attributes
+			// produced by the registry translator. They are not valid Terraform
+			// identifiers and are skipped at generation time anyway; drop them
+			// here so the catalog validates cleanly.
+			if strings.Contains(o.Name, ".") {
+				continue
+			}
+			filtered = append(filtered, Output{
 				Name:        o.Name,
 				Description: o.Description,
 				Sensitive:   o.Sensitive,
-			}
+			})
+		}
+		if len(filtered) > 0 {
+			m.Outputs = filtered
 		}
 	}
 	return m
