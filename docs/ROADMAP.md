@@ -1,7 +1,7 @@
 # Infra-Composer CLI — Implementation Roadmap
 
 **Version:** 1.0  
-**Status:** Phase 1 — Complete; Phase 2 — Complete; Phase 3 (Module Composition) ready to start  
+**Status:** Phase 1 — Complete; Phase 2 — Complete; Phase 3 — Complete (real registry source via `terraform` CLI + `interactive` workflow shipped); Phase 4 (Distribution) ready to start  
 **Duration:** 8 Weeks (2 weeks per phase)  
 **Last Updated:** 2026-04-22
 
@@ -188,18 +188,20 @@ infra-composer catalog list --schema ./catalog/schema.json
 
 | Task | Owner | Effort | Status |
 |------|-------|--------|--------|
-| Dependency graph builder | Dev1 | 2d | Pending |
-| Cycle detection | Dev1 | 1.5d | Pending |
-| `dependencies` command | Dev1 | 1d | Pending |
-| Interface extraction (variables + outputs) | Dev2 | 1.5d | Pending |
-| `interface` command | Dev2 | 0.5d | Pending |
-| HCL template engine | Dev2 | 2d | Pending |
-| Terraform file generation (5 core files) | Dev3 | 2d | Pending |
-| Support file generation (CI/CD, tflint, etc.) | Dev3 | 2d | Pending |
-| `compose` command | Dev1 | 1.5d | Pending |
-| Git integration (remote detection, tags) | Dev2 | 1d | Pending |
-| E2E integration tests | QA | 3d | Pending |
-| Error handling + suggestions | Dev1 | 1d | Pending |
+| Dependency graph builder | Dev1 | 2d | ✅ Done |
+| Cycle detection | Dev1 | 1.5d | ✅ Done |
+| `dependencies` command | Dev1 | 1d | ✅ Done |
+| Interface extraction (variables + outputs) | Dev2 | 1.5d | ✅ Done |
+| `interface` command | Dev2 | 0.5d | ✅ Done |
+| HCL template engine | Dev2 | 2d | ✅ Done |
+| Terraform file generation (5 core files) | Dev3 | 2d | ✅ Done |
+| Support file generation (CI/CD, tflint, etc.) | Dev3 | 2d | ✅ Done |
+| `compose` command | Dev1 | 1.5d | ✅ Done |
+| Real registry source (`terraform providers schema -json`) | Dev1 | 2d | ✅ Done (`internal/catalog/registry/terraform_exec.go`, schema cache, `--include/--exclude`) |
+| `interactive` command (provider/version/resource picker) | Dev2 | 1.5d | ✅ Done (`internal/commands/interactive.go`, survey/v2) |
+| Git integration (remote detection, tags) | Dev2 | 1d | ✅ Done (`internal/git/{remote,tags}.go`) |
+| E2E integration tests | QA | 3d | ✅ Done (gated by `INFRA_COMPOSER_E2E=1`, target hashicorp/random) |
+| Error handling + suggestions | Dev1 | 1d | ✅ Done |
 
 ### Deliverables
 

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"path/filepath"
 	"sort"
 	"time"
 
@@ -15,6 +16,16 @@ import (
 type BuildOptions struct {
 	// Provider is the canonical "<namespace>/<name>" address.
 	Provider string
+
+	// Include, when non-empty, restricts the build to module names
+	// matching at least one of the supplied patterns. Patterns are glob
+	// expressions (filepath.Match syntax) compared against the
+	// resource/data source name (e.g. "aws_vpc*", "*_subnet*").
+	Include []string
+
+	// Exclude removes any module whose name matches at least one
+	// pattern, even if it also matches Include. Same syntax as Include.
+	Exclude []string
 
 	// Now allows tests to pin GeneratedAt; defaults to time.Now().UTC().
 	Now func() time.Time
@@ -64,13 +75,20 @@ func (b *Builder) Build(ctx context.Context, opts BuildOptions) (*Schema, error)
 	modules := make([]ModuleEntry, 0, len(summaries))
 	seen := make(map[string]struct{}, len(summaries))
 	for _, s := range summaries {
-		if _, dup := seen[s.Name]; dup {
-			return nil, fmt.Errorf("registry returned duplicate module %q for %s", s.Name, prov.Address())
-		}
-		seen[s.Name] = struct{}{}
-
 		if !s.Kind.IsValid() {
 			return nil, fmt.Errorf("registry returned invalid kind %q for module %q", s.Kind, s.Name)
+		}
+		// Resources and data sources legitimately share names
+		// (e.g., azurerm_resource_group exists as both); namespace
+		// the dedup key by Kind to avoid false positives.
+		key := string(s.Kind) + ":" + s.Name
+		if _, dup := seen[key]; dup {
+			return nil, fmt.Errorf("registry returned duplicate %s %q for %s", s.Kind, s.Name, prov.Address())
+		}
+		seen[key] = struct{}{}
+
+		if !shouldIncludeModule(s.Name, opts.Include, opts.Exclude) {
+			continue
 		}
 		rs, err := b.client.GetResourceSchema(ctx, *prov, s.Name, s.Kind)
 		if err != nil {
@@ -162,4 +180,29 @@ func typeRank(t ModuleType) int {
 	default:
 		return 2
 	}
+}
+
+// shouldIncludeModule applies the include/exclude glob filters to a
+// resource name. Empty include lists mean "everything"; exclude wins
+// when both lists match.
+func shouldIncludeModule(name string, include, exclude []string) bool {
+	if matchAny(name, exclude) {
+		return false
+	}
+	if len(include) == 0 {
+		return true
+	}
+	return matchAny(name, include)
+}
+
+func matchAny(name string, patterns []string) bool {
+	for _, p := range patterns {
+		if p == "" {
+			continue
+		}
+		if ok, err := filepath.Match(p, name); err == nil && ok {
+			return true
+		}
+	}
+	return false
 }

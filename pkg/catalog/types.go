@@ -14,17 +14,17 @@ const SchemaVersion = internalcatalog.SchemaVersion
 
 // Re-exported data types (see internal/catalog for documentation).
 type (
-	Schema        = internalcatalog.Schema
-	ModuleEntry   = internalcatalog.ModuleEntry
-	ModuleType    = internalcatalog.ModuleType
+	Schema            = internalcatalog.Schema
+	ModuleEntry       = internalcatalog.ModuleEntry
+	ModuleType        = internalcatalog.ModuleType
 	Variable          = internalcatalog.Variable
 	VariableReference = internalcatalog.VariableReference
 	Output            = internalcatalog.Output
-	SearchOptions = internalcatalog.SearchOptions
-	SearchResult  = internalcatalog.SearchResult
-	BuildOptions  = internalcatalog.BuildOptions
-	Builder       = internalcatalog.Builder
-	ExportOptions = internalcatalog.ExportOptions
+	SearchOptions     = internalcatalog.SearchOptions
+	SearchResult      = internalcatalog.SearchResult
+	BuildOptions      = internalcatalog.BuildOptions
+	Builder           = internalcatalog.Builder
+	ExportOptions     = internalcatalog.ExportOptions
 )
 
 // Re-exported ModuleType constants.

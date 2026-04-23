@@ -17,6 +17,9 @@ help: ## Show this help
 build: ## Build CLI binary
 	go build $(LDFLAGS) -o bin/$(BINARY_NAME) ./cmd/infra-composer
 
+run: build ## Run CLI (use ARGS="--version" or ARGS="--help" or ARGS="catalog build")
+	./bin/$(BINARY_NAME) $(ARGS)
+
 test: ## Run all tests with coverage
 	go test ./... -v -cover -coverprofile=coverage.out
 

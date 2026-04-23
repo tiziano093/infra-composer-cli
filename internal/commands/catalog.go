@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"strings"
 	"text/tabwriter"
 	"time"
@@ -176,16 +177,27 @@ func writeJSON(out io.Writer, payload any) error {
 // ----------------------------------------------------------------------------
 
 type buildFlags struct {
-	provider    string
-	outputDir   string
-	registryDir string
-	format      string
+	provider       string
+	outputDir      string
+	registryDir    string
+	registrySource string
+	cacheDir       string
+	terraformBin   string
+	include        []string
+	exclude        []string
+	format         string
 }
 
 // DefaultRegistryDir is the relative directory consulted by the FakeClient
 // when --registry-dir is not provided. It mirrors the layout used by the
 // integration test fixtures so contributors can experiment locally.
 const DefaultRegistryDir = "./catalog/registry"
+
+// registry source identifiers accepted by --registry-source.
+const (
+	registrySourceFake      = "fake"
+	registrySourceTerraform = "terraform"
+)
 
 // newCatalogBuildCommand returns `catalog build --provider <addr>
 // --output-dir <dir>` which materialises a fresh schema.json by walking
@@ -195,10 +207,16 @@ func newCatalogBuildCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "build",
 		Short: "Build a catalog schema from a provider's registry data",
-		Long: `Build a catalog schema for the given Terraform provider. Provider
-metadata is loaded from the registry fixtures directory (defaults to
-./catalog/registry). The resulting schema.json is written to
-<output-dir>/schema.json and validated before exit.`,
+		Long: `Build a catalog schema for the given Terraform provider.
+
+The provider metadata source is selected with --registry-source:
+  fake       (default) read JSON fixtures from --registry-dir, useful
+             for tests and offline development.
+  terraform  invoke the local "terraform" CLI to install the provider
+             and dump its full schema. Requires terraform >=1.0 on PATH.
+
+Use --include / --exclude (glob patterns) to keep the generated schema
+focused on the resources you care about.`,
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		RunE: func(cmd *cobra.Command, _ []string) error {
@@ -212,19 +230,25 @@ metadata is loaded from the registry fixtures directory (defaults to
 				return invalidArgs("--output-dir is required",
 					"the resulting schema.json will be written to <output-dir>/schema.json")
 			}
-			registryDir := f.registryDir
-			if registryDir == "" {
-				registryDir = DefaultRegistryDir
+			source := strings.ToLower(strings.TrimSpace(f.registrySource))
+			if source == "" {
+				source = registrySourceFake
 			}
 
-			client := registry.NewFakeClient(registryDir)
+			client, srcLabel, err := buildRegistryClient(source, f)
+			if err != nil {
+				return err
+			}
+
 			builder := catalog.NewBuilder(client)
 			s, err := builder.Build(cmd.Context(), catalog.BuildOptions{
 				Provider: f.provider,
+				Include:  f.include,
+				Exclude:  f.exclude,
 				Now:      func() time.Time { return time.Now().UTC() },
 			})
 			if err != nil {
-				return mapBuildError(f.provider, registryDir, err)
+				return mapBuildError(f.provider, srcLabel, err)
 			}
 
 			dest, err := catalog.Export(s, catalog.ExportOptions{Dir: f.outputDir})
@@ -238,9 +262,60 @@ metadata is loaded from the registry fixtures directory (defaults to
 	}
 	cmd.Flags().StringVar(&f.provider, "provider", "", "Provider address (e.g. hashicorp/aws). Required.")
 	cmd.Flags().StringVar(&f.outputDir, "output-dir", "", "Directory where schema.json will be written. Required.")
-	cmd.Flags().StringVar(&f.registryDir, "registry-dir", "", "Directory containing provider fixtures (default ./catalog/registry)")
+	cmd.Flags().StringVar(&f.registryDir, "registry-dir", "", "Directory containing fake-source provider fixtures (default ./catalog/registry)")
+	cmd.Flags().StringVar(&f.registrySource, "registry-source", registrySourceFake, "Provider metadata source: fake|terraform")
+	cmd.Flags().StringVar(&f.cacheDir, "cache-dir", "", "Cache directory for terraform provider binaries and schema dumps (default $XDG_CACHE_HOME/infra-composer)")
+	cmd.Flags().StringVar(&f.terraformBin, "terraform-binary", "", "Path to terraform binary (registry-source=terraform). Defaults to PATH lookup.")
+	cmd.Flags().StringSliceVar(&f.include, "include", nil, "Glob patterns; only matching modules are kept (repeatable, comma-separated)")
+	cmd.Flags().StringSliceVar(&f.exclude, "exclude", nil, "Glob patterns; matching modules are dropped (repeatable, comma-separated)")
 	cmd.Flags().StringVar(&f.format, "format", "", "Output format: text|json (overrides global --format)")
 	return cmd
+}
+
+// buildRegistryClient instantiates the registry.Client matching the
+// requested source and returns a label suitable for error messages.
+func buildRegistryClient(source string, f *buildFlags) (registry.Client, string, error) {
+	switch source {
+	case registrySourceFake:
+		dir := f.registryDir
+		if dir == "" {
+			dir = DefaultRegistryDir
+		}
+		return registry.NewFakeClient(dir), dir, nil
+	case registrySourceTerraform:
+		opts := []registry.TerraformExecOption{}
+		if f.terraformBin != "" {
+			opts = append(opts, registry.WithTerraformBinary(f.terraformBin))
+		}
+		cacheRoot := f.cacheDir
+		if cacheRoot == "" {
+			cacheRoot = defaultCacheDir()
+		}
+		if cacheRoot != "" {
+			opts = append(opts,
+				registry.WithPluginCacheDir(filepath.Join(cacheRoot, "plugins")),
+				registry.WithSchemaCacheDir(filepath.Join(cacheRoot, "schemas")),
+			)
+		}
+		return registry.NewTerraformExecClient(opts...), "terraform-exec", nil
+	default:
+		return nil, "", invalidArgs(
+			fmt.Sprintf("unknown --registry-source %q", source),
+			"valid values: fake, terraform")
+	}
+}
+
+// defaultCacheDir resolves the user-level cache root, preferring
+// XDG_CACHE_HOME when set and falling back to ~/.cache/infra-composer.
+func defaultCacheDir() string {
+	if v := os.Getenv("XDG_CACHE_HOME"); v != "" {
+		return filepath.Join(v, "infra-composer")
+	}
+	home, err := os.UserHomeDir()
+	if err != nil || home == "" {
+		return ""
+	}
+	return filepath.Join(home, ".cache", "infra-composer")
 }
 
 // buildReport is the JSON shape for `catalog build` output.

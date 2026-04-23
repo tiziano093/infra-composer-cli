@@ -24,23 +24,29 @@ type composeFlags struct {
 	dryRun    bool
 	force     bool
 	format    string
+	rootStack bool
 }
 
-// NewComposeCommand returns the `compose` subcommand which renders a
-// Terraform stack from the catalog and writes it to disk (or previews
-// the result in dry-run mode).
+// NewComposeCommand returns the `compose` subcommand. It generates one
+// reusable Terraform module folder per selected catalog entry under
+// --output-dir (or previews the plan in dry-run mode).
 func NewComposeCommand() *cobra.Command {
-	f := &composeFlags{}
+	f := &composeFlags{rootStack: true}
 	cmd := &cobra.Command{
 		Use:   "compose",
-		Short: "Compose a Terraform stack from catalog modules",
-		Long: `Resolve module dependencies, choose sources, and render the five core
-Terraform files (providers.tf, variables.tf, locals.tf, main.tf,
-outputs.tf) into --output-dir.
+		Short: "Generate reusable Terraform module folders from catalog entries",
+		Long: `For each --modules entry, write a self-contained Terraform module folder
+under --output-dir containing version.tf, variables.tf, main.tf,
+outputs.tf and README.md. Each module wraps a single resource (or data
+source) of the catalog provider.
 
-Use --dry-run to preview the planned files (paths + sha256) without
-touching the filesystem. By default the command refuses to write into
-a non-empty directory unless --force is given.`,
+Selection accepts bare names (defaults to the resource entry, falls
+back to data) or kind-qualified names (resource.<name>, data.<name>)
+to disambiguate when both exist.
+
+Use --dry-run to preview the planned folders/files (paths + sha256)
+without touching the filesystem. By default the command refuses to
+overwrite pre-existing generated files unless --force is given.`,
 		Args:          cobra.NoArgs,
 		SilenceUsage:  true,
 		SilenceErrors: true,
@@ -56,7 +62,7 @@ a non-empty directory unless --force is given.`,
 			modules := splitModules(f.modules)
 			if len(modules) == 0 {
 				return invalidArgs("no modules selected",
-					"pass --modules \"<name1> <name2>\" or a comma-separated list")
+					"pass --modules \"<name1> <name2>\" or a comma-separated list (use \"resource.<name>\" or \"data.<name>\" to disambiguate)")
 			}
 			if !f.dryRun && f.outputDir == "" {
 				return invalidArgs("--output-dir is required unless --dry-run is set")
@@ -68,8 +74,8 @@ a non-empty directory unless --force is given.`,
 			}
 
 			plan, err := terraform.Plan(s, terraform.PlanOptions{
-				Modules:  modules,
-				Resolver: terraform.PlaceholderResolver{},
+				Modules:       modules,
+				EmitRootStack: f.rootStack,
 			})
 			if err != nil {
 				return mapPlanError(err)
@@ -92,11 +98,12 @@ a non-empty directory unless --force is given.`,
 	}
 
 	cmd.Flags().StringVar(&f.schema, "schema", "", "Path to catalog schema.json (defaults to catalog.schema in config)")
-	cmd.Flags().StringVar(&f.modules, "modules", "", "Modules to compose (space- or comma-separated, e.g. \"aws_vpc aws_subnet\")")
-	cmd.Flags().StringVar(&f.outputDir, "output-dir", "", "Directory to write generated files into")
-	cmd.Flags().BoolVar(&f.dryRun, "dry-run", false, "Print planned files (paths + sha256) without writing")
-	cmd.Flags().BoolVar(&f.force, "force", false, "Overwrite generated files in a non-empty output-dir")
+	cmd.Flags().StringVar(&f.modules, "modules", "", "Modules to compose (space- or comma-separated; e.g. \"aws_vpc data.aws_ami\")")
+	cmd.Flags().StringVar(&f.outputDir, "output-dir", "", "Parent directory under which one folder per module is written")
+	cmd.Flags().BoolVar(&f.dryRun, "dry-run", false, "Print planned folders/files (paths + sha256) without writing")
+	cmd.Flags().BoolVar(&f.force, "force", false, "Overwrite generated files in pre-existing module folders")
 	cmd.Flags().StringVar(&f.format, "format", "", "Output format: text|json (overrides global --format)")
+	cmd.Flags().BoolVar(&f.rootStack, "root-stack", true, "Also emit a top-level stack (providers.tf, versions.tf, variables.tf, locals.tf, main.tf, outputs.tf) that composes the per-module folders")
 	return cmd
 }
 
@@ -117,26 +124,26 @@ func splitModules(raw string) []string {
 }
 
 func mapPlanError(err error) error {
+	var cyc *catalog.CycleError
 	switch {
 	case errors.Is(err, catalog.ErrUnknownModule):
 		return cliError(clierr.ExitModuleNotFound, err.Error(),
 			"run `infra-composer search` to list available modules")
-	case errors.Is(err, terraform.ErrAmbiguousReference):
-		return cliError(clierr.ExitDependencyFailed, err.Error(),
-			"either narrow the module selection or remove one of the conflicting references in the catalog")
-	}
-	if strings.Contains(err.Error(), "dependency cycle") {
-		return cliError(clierr.ExitDependencyFailed, err.Error(),
-			"run `infra-composer dependencies <module> --check-cycles` to enumerate cycles")
+	case errors.Is(err, terraform.ErrAmbiguousSelection):
+		return cliError(clierr.ExitInvalidArgs, err.Error(),
+			"use the kind-qualified form (e.g. \"resource.<name>\" or \"data.<name>\")")
+	case errors.As(err, &cyc):
+		return cliError(clierr.ExitInvalidArgs, err.Error(),
+			"break the cycle by removing one of the references, or disable the root stack with --root-stack=false")
 	}
 	return clierr.Wrap(clierr.ExitGeneric, "build compose plan", err)
 }
 
-// writeComposeFiles materialises files atomically. When the target dir
-// does not yet exist it is created. For an existing dir we refuse
-// non-empty overwrites unless --force is set; in that mode we write
-// each file via tmp+rename so a failed write does not leave a half
-// updated stack.
+// writeComposeFiles materialises files atomically. Per-module folders
+// are created under dir; clash detection is per-file (any pre-existing
+// file with the same relative path inside dir aborts the write unless
+// force is set). Each file is written via tmp+rename so failures do
+// not leave a half-updated module.
 func writeComposeFiles(dir string, files []terraform.GeneratedFile, force bool) error {
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return clierr.Wrap(clierr.ExitGeneric, "create output directory", err)
@@ -153,7 +160,10 @@ func writeComposeFiles(dir string, files []terraform.GeneratedFile, force bool) 
 		}
 	}
 	for _, f := range files {
-		full := filepath.Join(dir, f.Path)
+		full := filepath.Join(dir, filepath.FromSlash(f.Path))
+		if err := os.MkdirAll(filepath.Dir(full), 0o755); err != nil {
+			return clierr.Wrap(clierr.ExitGeneric, fmt.Sprintf("create folder for %s", f.Path), err)
+		}
 		if err := atomicWriteFile(full, f.Content); err != nil {
 			return clierr.Wrap(clierr.ExitGeneric, fmt.Sprintf("write %s", f.Path), err)
 		}
@@ -164,7 +174,7 @@ func writeComposeFiles(dir string, files []terraform.GeneratedFile, force bool) 
 func detectClashes(dir string, files []terraform.GeneratedFile) ([]string, error) {
 	out := make([]string, 0)
 	for _, f := range files {
-		_, err := os.Stat(filepath.Join(dir, f.Path))
+		_, err := os.Stat(filepath.Join(dir, filepath.FromSlash(f.Path)))
 		switch {
 		case err == nil:
 			out = append(out, f.Path)
@@ -209,12 +219,25 @@ type composeJSONFile struct {
 	Bytes  int    `json:"bytes"`
 }
 
+type composeJSONModule struct {
+	Module   string            `json:"module"`
+	Kind     string            `json:"kind"`
+	Folder   string            `json:"folder"`
+	Files    []composeJSONFile `json:"files"`
+	Warnings []string          `json:"warnings,omitempty"`
+}
+
+type composeJSONRootStack struct {
+	Files []composeJSONFile `json:"files"`
+}
+
 type composeJSONSummary struct {
-	OutputDir string            `json:"output_dir,omitempty"`
-	DryRun    bool              `json:"dry_run"`
-	Modules   []string          `json:"modules"`
-	Files     []composeJSONFile `json:"files"`
-	Warnings  []string          `json:"warnings,omitempty"`
+	OutputDir string                `json:"output_dir,omitempty"`
+	DryRun    bool                  `json:"dry_run"`
+	Provider  string                `json:"provider,omitempty"`
+	Modules   []composeJSONModule   `json:"modules"`
+	RootStack *composeJSONRootStack `json:"root_stack,omitempty"`
+	Warnings  []string              `json:"warnings,omitempty"`
 }
 
 func renderComposeDryRun(out io.Writer, plan *terraform.ComposePlan, files []terraform.GeneratedFile, format string) error {
@@ -238,21 +261,41 @@ func renderComposeWriteSummary(out io.Writer, plan *terraform.ComposePlan, files
 }
 
 func composeSummary(dir string, dryRun bool, plan *terraform.ComposePlan, files []terraform.GeneratedFile) composeJSONSummary {
-	mods := make([]string, 0, len(plan.Modules))
-	for _, m := range plan.Modules {
-		mods = append(mods, m.Module.Name)
-	}
-	jf := make([]composeJSONFile, 0, len(files))
+	byModule := make(map[string][]composeJSONFile, len(plan.Modules))
+	var rootFiles []composeJSONFile
 	for _, f := range files {
-		jf = append(jf, composeJSONFile{Path: f.Path, SHA256: f.SHA256Hex(), Bytes: len(f.Content)})
+		entry := composeJSONFile{
+			Path:   f.Path,
+			SHA256: f.SHA256Hex(),
+			Bytes:  len(f.Content),
+		}
+		if f.Module == "" {
+			rootFiles = append(rootFiles, entry)
+			continue
+		}
+		byModule[f.Module] = append(byModule[f.Module], entry)
 	}
-	return composeJSONSummary{
+	mods := make([]composeJSONModule, 0, len(plan.Modules))
+	for _, m := range plan.Modules {
+		mods = append(mods, composeJSONModule{
+			Module:   m.ResourceType,
+			Kind:     string(m.Kind),
+			Folder:   m.ResourceType,
+			Files:    byModule[m.ResourceType],
+			Warnings: m.Warnings,
+		})
+	}
+	summary := composeJSONSummary{
 		OutputDir: dir,
 		DryRun:    dryRun,
+		Provider:  plan.Provider,
 		Modules:   mods,
-		Files:     jf,
 		Warnings:  plan.Warnings,
 	}
+	if plan.EmitRootStack && len(rootFiles) > 0 {
+		summary.RootStack = &composeJSONRootStack{Files: rootFiles}
+	}
+	return summary
 }
 
 func encodeJSON(out io.Writer, v any) error {
@@ -262,25 +305,36 @@ func encodeJSON(out io.Writer, v any) error {
 }
 
 func renderComposeText(out io.Writer, s composeJSONSummary) error {
-	if s.DryRun {
-		fmt.Fprintf(out, "Dry-run: %d module(s), %d file(s) planned.\n", len(s.Modules), len(s.Files))
-	} else {
-		fmt.Fprintf(out, "Wrote %d file(s) to %s\n", len(s.Files), s.OutputDir)
+	totalFiles := 0
+	for _, m := range s.Modules {
+		totalFiles += len(m.Files)
 	}
-	if len(s.Modules) > 0 {
-		fmt.Fprintln(out, "Modules (deps first):")
-		for _, m := range s.Modules {
-			fmt.Fprintf(out, "  - %s\n", m)
+	rootCount := 0
+	if s.RootStack != nil {
+		rootCount = len(s.RootStack.Files)
+	}
+	if s.DryRun {
+		fmt.Fprintf(out, "Dry-run: %d module(s), %d file(s) planned (+ %d root-stack file(s)).\n", len(s.Modules), totalFiles, rootCount)
+	} else {
+		fmt.Fprintf(out, "Wrote %d module(s), %d file(s) to %s (+ %d root-stack file(s)).\n", len(s.Modules), totalFiles, s.OutputDir, rootCount)
+	}
+	for _, m := range s.Modules {
+		fmt.Fprintf(out, "\n%s/  (%s)\n", m.Folder, m.Kind)
+		for _, f := range m.Files {
+			fmt.Fprintf(out, "  %s  %s  (%d bytes)\n", f.Path, f.SHA256[:12], f.Bytes)
+		}
+		for _, w := range m.Warnings {
+			fmt.Fprintf(out, "  ! %s\n", w)
 		}
 	}
-	if len(s.Files) > 0 {
-		fmt.Fprintln(out, "Files:")
-		for _, f := range s.Files {
+	if s.RootStack != nil && len(s.RootStack.Files) > 0 {
+		fmt.Fprintln(out, "\nRoot stack")
+		for _, f := range s.RootStack.Files {
 			fmt.Fprintf(out, "  %s  %s  (%d bytes)\n", f.Path, f.SHA256[:12], f.Bytes)
 		}
 	}
 	if len(s.Warnings) > 0 {
-		fmt.Fprintln(out, "Warnings:")
+		fmt.Fprintln(out, "\nPlan warnings:")
 		for _, w := range s.Warnings {
 			fmt.Fprintf(out, "  ! %s\n", w)
 		}

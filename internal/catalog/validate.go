@@ -93,10 +93,11 @@ func validateModule(v *validator, base string, m ModuleEntry, seen map[string]in
 	case !identRe.MatchString(m.Name):
 		v.addf(base+".name", "invalid identifier %q", m.Name)
 	default:
-		if prev, dup := seen[m.Name]; dup {
-			v.addf(base+".name", "duplicate module name %q (also at modules[%d])", m.Name, prev)
+		key := string(m.Type) + ":" + m.Name
+		if prev, dup := seen[key]; dup {
+			v.addf(base+".name", "duplicate module name %q for type %s (also at modules[%d])", m.Name, m.Type, prev)
 		} else {
-			seen[m.Name] = idx
+			seen[key] = idx
 		}
 	}
 

@@ -6,7 +6,6 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -21,15 +20,20 @@ const composeSchemaJSON = `{
   "provider_version": "5.42.0",
   "modules": [
     {"name": "aws_vpc", "type": "resource",
-     "source": "git::https://example.com/aws-vpc.git",
-     "variables": [{"name": "cidr_block", "type": "string", "required": true}],
-     "outputs": [{"name": "id"}]},
+     "variables": [
+       {"name": "cidr_block", "type": "string", "required": true},
+       {"name": "tags", "type": "map(string)"}
+     ],
+     "outputs": [{"name": "id"}, {"name": "arn"}]},
     {"name": "aws_subnet", "type": "resource",
      "variables": [
-       {"name": "vpc_id", "type": "string", "required": true,
-        "references": [{"module": "aws_vpc", "output": "id"}]},
-       {"name": "cidr_block", "type": "string", "required": true}],
-     "outputs": [{"name": "id"}]}
+       {"name": "vpc_id", "type": "string", "required": true},
+       {"name": "cidr_block", "type": "string", "required": true}
+     ],
+     "outputs": [{"name": "id"}]},
+    {"name": "aws_caller", "type": "data",
+     "variables": [{"name": "name", "type": "string", "required": true}],
+     "outputs": [{"name": "id"}, {"name": "account_id"}]}
   ]
 }`
 
@@ -45,7 +49,7 @@ func runCompose(t *testing.T, schemaBody string, args ...string) (*bytes.Buffer,
 	return stdout, cmd.Execute()
 }
 
-func TestCompose_DryRunJSON(t *testing.T) {
+func TestCompose_DryRunJSONHasFolderPerModule(t *testing.T) {
 	t.Parallel()
 	out, err := runCompose(t, composeSchemaJSON,
 		"--modules", "aws_vpc,aws_subnet", "--dry-run", "--format", "json")
@@ -53,53 +57,74 @@ func TestCompose_DryRunJSON(t *testing.T) {
 	var summary composeJSONSummary
 	require.NoError(t, json.Unmarshal(out.Bytes(), &summary))
 	assert.True(t, summary.DryRun)
-	assert.Equal(t, []string{"aws_vpc", "aws_subnet"}, summary.Modules)
-	require.Len(t, summary.Files, 5)
-	for _, f := range summary.Files {
-		assert.Len(t, f.SHA256, 64, "expected hex sha256")
+	assert.Equal(t, "hashicorp/aws", summary.Provider)
+	require.Len(t, summary.Modules, 2)
+	assert.Equal(t, "aws_vpc", summary.Modules[0].Module)
+	assert.Equal(t, "aws_vpc", summary.Modules[0].Folder)
+	assert.Equal(t, "resource", summary.Modules[0].Kind)
+	require.Len(t, summary.Modules[0].Files, 5)
+	for _, f := range summary.Modules[0].Files {
+		assert.Len(t, f.SHA256, 64)
 		assert.Greater(t, f.Bytes, 0)
+		assert.Contains(t, f.Path, "aws_vpc/")
 	}
+	require.Len(t, summary.Modules[1].Files, 5)
 }
 
-func TestCompose_WritesFiles(t *testing.T) {
+func TestCompose_WritesFolders(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()
 	_, err := runCompose(t, composeSchemaJSON,
 		"--modules", "aws_vpc aws_subnet", "--output-dir", dir)
 	require.NoError(t, err)
-	for _, name := range []string{"providers.tf", "variables.tf", "locals.tf", "main.tf", "outputs.tf"} {
-		body, err := os.ReadFile(filepath.Join(dir, name))
-		require.NoError(t, err, "missing %s", name)
-		require.NotEmpty(t, body)
+	for _, mod := range []string{"aws_vpc", "aws_subnet"} {
+		for _, f := range []string{"version.tf", "variables.tf", "main.tf", "outputs.tf", "README.md"} {
+			body, err := os.ReadFile(filepath.Join(dir, mod, f))
+			require.NoError(t, err, "missing %s/%s", mod, f)
+			require.NotEmpty(t, body)
+		}
 	}
-	main, _ := os.ReadFile(filepath.Join(dir, "main.tf"))
-	assert.Contains(t, string(main), `module "this_aws_vpc"`)
-	assert.Contains(t, string(main), "module.this_aws_vpc.id")
+	main, _ := os.ReadFile(filepath.Join(dir, "aws_vpc", "main.tf"))
+	assert.Contains(t, string(main), `resource "aws_vpc" "this"`)
+	assert.Contains(t, string(main), `cidr_block = var.cidr_block`)
+}
+
+func TestCompose_DataSourceSelection(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	_, err := runCompose(t, composeSchemaJSON,
+		"--modules", "data.aws_caller", "--output-dir", dir)
+	require.NoError(t, err)
+	main, err := os.ReadFile(filepath.Join(dir, "aws_caller", "main.tf"))
+	require.NoError(t, err)
+	assert.Contains(t, string(main), `data "aws_caller" "this"`)
 }
 
 func TestCompose_RefusesOverwriteWithoutForce(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "main.tf"), []byte("# pre-existing\n"), 0o644))
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, "aws_vpc"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "aws_vpc", "main.tf"), []byte("# pre-existing\n"), 0o644))
 	_, err := runCompose(t, composeSchemaJSON,
 		"--modules", "aws_vpc", "--output-dir", dir)
 	require.Error(t, err)
 	var ce *clierr.CLIError
 	require.True(t, errors.As(err, &ce))
 	assert.Contains(t, ce.Error(), "already contains generated files")
-	body, _ := os.ReadFile(filepath.Join(dir, "main.tf"))
+	body, _ := os.ReadFile(filepath.Join(dir, "aws_vpc", "main.tf"))
 	assert.Equal(t, "# pre-existing\n", string(body), "no file must be overwritten without --force")
 }
 
 func TestCompose_ForceOverwrites(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "main.tf"), []byte("# stale"), 0o644))
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, "aws_vpc"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "aws_vpc", "main.tf"), []byte("# stale"), 0o644))
 	_, err := runCompose(t, composeSchemaJSON,
 		"--modules", "aws_vpc", "--output-dir", dir, "--force")
 	require.NoError(t, err)
-	body, _ := os.ReadFile(filepath.Join(dir, "main.tf"))
-	assert.Contains(t, string(body), `module "this_aws_vpc"`)
+	body, _ := os.ReadFile(filepath.Join(dir, "aws_vpc", "main.tf"))
+	assert.Contains(t, string(body), `resource "aws_vpc" "this"`)
 }
 
 func TestCompose_DryRunDoesNotWrite(t *testing.T) {
@@ -128,21 +153,4 @@ func TestCompose_UnknownModule(t *testing.T) {
 	var ce *clierr.CLIError
 	require.True(t, errors.As(err, &ce))
 	assert.Equal(t, clierr.ExitModuleNotFound, ce.Code)
-}
-
-func TestCompose_PartialSelectionWarnsInJSON(t *testing.T) {
-	t.Parallel()
-	out, err := runCompose(t, composeSchemaJSON,
-		"--modules", "aws_subnet", "--dry-run", "--format", "json")
-	require.NoError(t, err)
-	var summary composeJSONSummary
-	require.NoError(t, json.Unmarshal(out.Bytes(), &summary))
-	require.NotEmpty(t, summary.Warnings)
-	hasRefWarning := false
-	for _, w := range summary.Warnings {
-		if strings.Contains(w, "aws_subnet.vpc_id references aws_vpc.id") {
-			hasRefWarning = true
-		}
-	}
-	assert.True(t, hasRefWarning, "expected partial-selection warning, got %v", summary.Warnings)
 }

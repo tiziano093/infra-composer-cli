@@ -1,7 +1,7 @@
 package terraform
 
 import (
-	"strings"
+	"path"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -15,75 +15,62 @@ func planSchema() *catalog.Schema {
 		SchemaVersion: catalog.SchemaVersion, Provider: "hashicorp/aws", ProviderVersion: "5.42.0",
 		Modules: []catalog.ModuleEntry{
 			{Name: "aws_vpc", Type: catalog.ModuleTypeResource,
-				Source: "git::https://example.com/aws-vpc.git",
+				Description: "Manages a VPC",
 				Variables: []catalog.Variable{
 					{Name: "cidr_block", Type: "string", Required: true, Description: "VPC CIDR"},
 					{Name: "enable_dns", Type: "bool", Default: true},
+					{Name: "tags", Type: "map(string)"},
 				},
-				Outputs: []catalog.Output{{Name: "id", Description: "VPC ID"}}},
-			{Name: "aws_subnet", Type: catalog.ModuleTypeResource,
+				Outputs: []catalog.Output{{Name: "id", Description: "VPC ID"}, {Name: "arn"}}},
+			{Name: "aws_secret", Type: catalog.ModuleTypeResource,
 				Variables: []catalog.Variable{
-					{Name: "vpc_id", Type: "string", Required: true,
-						References: []catalog.VariableReference{{Module: "aws_vpc", Output: "id"}}},
-					{Name: "cidr_block", Type: "string", Required: true},
+					{Name: "value", Type: "string", Required: true, Sensitive: true},
+				},
+				Outputs: []catalog.Output{{Name: "id"}, {Name: "secret_value", Sensitive: true}}},
+			{Name: "aws_caller", Type: catalog.ModuleTypeResource,
+				Variables: []catalog.Variable{
+					{Name: "name", Type: "string", Required: true},
+				},
+				Outputs: []catalog.Output{{Name: "id"}}},
+			{Name: "aws_caller", Type: catalog.ModuleTypeData,
+				Variables: []catalog.Variable{
+					{Name: "name", Type: "string", Required: true},
+				},
+				Outputs: []catalog.Output{{Name: "id"}, {Name: "account_id"}}},
+			{Name: "aws_instance", Type: catalog.ModuleTypeResource,
+				Variables: []catalog.Variable{
+					{Name: "ami", Type: "string", Required: true},
+					{Name: "ebs_block_device", Type: "list(any)"},
+					{Name: "ebs_block_device.size", Type: "number"},
 				},
 				Outputs: []catalog.Output{{Name: "id"}}},
 		},
 	}
 }
 
-func TestPlan_TopologicalDepsFirst(t *testing.T) {
+func TestPlan_BareNamePicksResource(t *testing.T) {
 	t.Parallel()
-	plan, err := Plan(planSchema(), PlanOptions{Modules: []string{"aws_subnet", "aws_vpc"}})
+	plan, err := Plan(planSchema(), PlanOptions{Modules: []string{"aws_caller"}})
+	require.NoError(t, err)
+	require.Len(t, plan.Modules, 1)
+	assert.Equal(t, catalog.ModuleTypeResource, plan.Modules[0].Kind)
+}
+
+func TestPlan_KindQualifiedPicksData(t *testing.T) {
+	t.Parallel()
+	plan, err := Plan(planSchema(), PlanOptions{Modules: []string{"data.aws_caller"}})
+	require.NoError(t, err)
+	require.Len(t, plan.Modules, 1)
+	assert.Equal(t, catalog.ModuleTypeData, plan.Modules[0].Kind)
+}
+
+func TestPlan_DedupKeepsFirstAndPreservesOrder(t *testing.T) {
+	t.Parallel()
+	plan, err := Plan(planSchema(), PlanOptions{Modules: []string{"aws_secret", "aws_vpc", "aws_secret"}})
 	require.NoError(t, err)
 	require.Len(t, plan.Modules, 2)
-	assert.Equal(t, "aws_vpc", plan.Modules[0].Module.Name, "deps must come first")
-	assert.Equal(t, "aws_subnet", plan.Modules[1].Module.Name)
-}
-
-func TestPlan_WiringAndExternals(t *testing.T) {
-	t.Parallel()
-	plan, err := Plan(planSchema(), PlanOptions{Modules: []string{"aws_vpc", "aws_subnet"}})
-	require.NoError(t, err)
-	subnet := plan.Modules[1]
-	require.Len(t, subnet.WiredInputs, 1)
-	assert.Equal(t, "vpc_id", subnet.WiredInputs[0].VarName)
-	assert.Equal(t, "this_aws_vpc", subnet.WiredInputs[0].FromInstance)
-	require.Len(t, subnet.ExternalInputs, 1)
-	assert.Equal(t, "aws_subnet_cidr_block", subnet.ExternalInputs[0].VarName)
-}
-
-func TestPlan_PartialSelectionWarning(t *testing.T) {
-	t.Parallel()
-	plan, err := Plan(planSchema(), PlanOptions{Modules: []string{"aws_subnet"}})
-	require.NoError(t, err)
-	require.NotEmpty(t, plan.Warnings, "missing referenced module should warn")
-	require.Len(t, plan.Modules, 1)
-	// vpc_id falls through to external input.
-	hasVpcId := false
-	for _, in := range plan.Modules[0].ExternalInputs {
-		if in.LocalName == "vpc_id" {
-			hasVpcId = true
-		}
-	}
-	assert.True(t, hasVpcId, "wired input must materialise as external when source is unselected")
-}
-
-func TestPlan_AmbiguousReference(t *testing.T) {
-	t.Parallel()
-	s := planSchema()
-	s.Modules = append(s.Modules, catalog.ModuleEntry{
-		Name: "alt_vpc", Type: catalog.ModuleTypeResource,
-		Outputs: []catalog.Output{{Name: "id"}},
-	})
-	// Make subnet.vpc_id reference both aws_vpc and alt_vpc.
-	s.Modules[1].Variables[0].References = []catalog.VariableReference{
-		{Module: "aws_vpc", Output: "id"},
-		{Module: "alt_vpc", Output: "id"},
-	}
-	_, err := Plan(s, PlanOptions{Modules: []string{"aws_vpc", "alt_vpc", "aws_subnet"}})
-	require.Error(t, err)
-	assert.ErrorIs(t, err, ErrAmbiguousReference)
+	assert.Equal(t, "aws_secret", plan.Modules[0].ResourceType)
+	assert.Equal(t, "aws_vpc", plan.Modules[1].ResourceType)
 }
 
 func TestPlan_UnknownModule(t *testing.T) {
@@ -93,74 +80,148 @@ func TestPlan_UnknownModule(t *testing.T) {
 	assert.ErrorIs(t, err, catalog.ErrUnknownModule)
 }
 
-func TestGenerate_FiveCoreFiles(t *testing.T) {
+func TestPlan_UnknownKindPrefix(t *testing.T) {
 	t.Parallel()
-	plan, err := Plan(planSchema(), PlanOptions{Modules: []string{"aws_vpc", "aws_subnet"}})
-	require.NoError(t, err)
-	files, err := Generate(plan)
-	require.NoError(t, err)
-	require.Len(t, files, 5)
-	names := []string{}
-	for _, f := range files {
-		names = append(names, f.Path)
-	}
-	assert.Equal(t, []string{"providers.tf", "variables.tf", "locals.tf", "main.tf", "outputs.tf"}, names)
+	_, err := Plan(planSchema(), PlanOptions{Modules: []string{"weird.aws_vpc"}})
+	require.Error(t, err)
+	assert.ErrorIs(t, err, catalog.ErrUnknownModule)
 }
 
-func TestGenerate_ContentSnapshots(t *testing.T) {
+func TestPlan_NestedBlocksFlaggedCutB(t *testing.T) {
 	t.Parallel()
-	plan, err := Plan(planSchema(), PlanOptions{Modules: []string{"aws_vpc", "aws_subnet"}})
+	plan, err := Plan(planSchema(), PlanOptions{Modules: []string{"aws_instance"}})
 	require.NoError(t, err)
-	files, err := Generate(plan)
-	require.NoError(t, err)
-	by := map[string]string{}
-	for _, f := range files {
-		by[f.Path] = string(f.Content)
+	mod := plan.Modules[0]
+	for _, v := range mod.Variables {
+		assert.NotContains(t, v.Name, ".", "dotted children must not be surfaced")
 	}
-
-	// providers.tf
-	assert.Contains(t, by["providers.tf"], `source  = "hashicorp/aws"`)
-	assert.Contains(t, by["providers.tf"], `~> 5.42`)
-	assert.Contains(t, by["providers.tf"], `provider "aws"`)
-
-	// variables.tf — every external input prefixed by module name
-	assert.Contains(t, by["variables.tf"], `variable "aws_vpc_cidr_block"`)
-	assert.Contains(t, by["variables.tf"], `variable "aws_vpc_enable_dns"`)
-	assert.Contains(t, by["variables.tf"], `default = true`)
-	assert.Contains(t, by["variables.tf"], `variable "aws_subnet_cidr_block"`)
-	// type rendered raw, not quoted
-	assert.Contains(t, by["variables.tf"], `type = string`)
-
-	// main.tf — wiring and external var refs
-	assert.Contains(t, by["main.tf"], `module "this_aws_vpc"`)
-	assert.Contains(t, by["main.tf"], `module "this_aws_subnet"`)
-	assert.Contains(t, by["main.tf"], `vpc_id     = module.this_aws_vpc.id`)
-	assert.Contains(t, by["main.tf"], `var.aws_subnet_cidr_block`)
-	assert.Contains(t, by["main.tf"], `"git::https://example.com/aws-vpc.git"`)
-	// no version attr for git source
-	assert.False(t, strings.Contains(by["main.tf"], `version = "5.42.0"`),
-		"git modules must not get a version attribute")
-
-	// outputs.tf — namespaced exports
-	assert.Contains(t, by["outputs.tf"], `output "aws_vpc_id"`)
-	assert.Contains(t, by["outputs.tf"], `output "aws_subnet_id"`)
-	assert.Contains(t, by["outputs.tf"], `value       = module.this_aws_vpc.id`)
-}
-
-func TestGenerate_PlaceholderSourceComment(t *testing.T) {
-	t.Parallel()
-	s := planSchema()
-	s.Modules[0].Source = "" // strip git URL → placeholder
-	plan, err := Plan(s, PlanOptions{Modules: []string{"aws_vpc"}})
-	require.NoError(t, err)
-	files, err := Generate(plan)
-	require.NoError(t, err)
-	for _, f := range files {
-		if f.Path == "main.tf" {
-			assert.Contains(t, string(f.Content), "TODO: replace placeholder source")
-			assert.Contains(t, string(f.Content), `"TODO: set module source"`)
-			return
+	var ebs *ModuleVariable
+	for i, v := range mod.Variables {
+		if v.Name == "ebs_block_device" {
+			ebs = &mod.Variables[i]
 		}
 	}
-	t.Fatal("main.tf not found")
+	require.NotNil(t, ebs, "expected nested block parent to be present")
+	assert.True(t, ebs.Nested)
+	assert.NotEmpty(t, mod.Warnings, "nested-block module must surface a warning")
+}
+
+func TestGenerate_FilesPerModule(t *testing.T) {
+	t.Parallel()
+	plan, err := Plan(planSchema(), PlanOptions{Modules: []string{"aws_vpc", "data.aws_caller"}})
+	require.NoError(t, err)
+	files, err := Generate(plan)
+	require.NoError(t, err)
+	require.Len(t, files, 10)
+	expected := []string{
+		path.Join("aws_vpc", "version.tf"),
+		path.Join("aws_vpc", "variables.tf"),
+		path.Join("aws_vpc", "main.tf"),
+		path.Join("aws_vpc", "outputs.tf"),
+		path.Join("aws_vpc", "README.md"),
+		path.Join("aws_caller", "version.tf"),
+		path.Join("aws_caller", "variables.tf"),
+		path.Join("aws_caller", "main.tf"),
+		path.Join("aws_caller", "outputs.tf"),
+		path.Join("aws_caller", "README.md"),
+	}
+	got := make([]string, 0, len(files))
+	for _, f := range files {
+		got = append(got, f.Path)
+	}
+	assert.Equal(t, expected, got)
+}
+
+func TestGenerate_ResourceContent(t *testing.T) {
+	t.Parallel()
+	plan, err := Plan(planSchema(), PlanOptions{Modules: []string{"aws_vpc"}})
+	require.NoError(t, err)
+	files, err := Generate(plan)
+	require.NoError(t, err)
+
+	by := byName(files)
+
+	assert.Contains(t, by["aws_vpc/version.tf"], `source  = "hashicorp/aws"`)
+	assert.Contains(t, by["aws_vpc/version.tf"], `version = "~> 5.42"`)
+	assert.Contains(t, by["aws_vpc/version.tf"], `required_version = ">= 1.0.0"`)
+	assert.NotContains(t, by["aws_vpc/version.tf"], `provider "aws"`)
+
+	assert.Contains(t, by["aws_vpc/variables.tf"], `variable "cidr_block"`)
+	assert.Regexp(t, `type\s+= string`, by["aws_vpc/variables.tf"])
+	assert.Contains(t, by["aws_vpc/variables.tf"], `default = true`)
+	assert.Regexp(t, `type\s+= map\(string\)`, by["aws_vpc/variables.tf"])
+	assert.Contains(t, by["aws_vpc/variables.tf"], `description = "VPC CIDR"`)
+
+	main := by["aws_vpc/main.tf"]
+	assert.Contains(t, main, `resource "aws_vpc" "this"`)
+	assert.NotContains(t, main, `module "`)
+	assert.Contains(t, main, `cidr_block = var.cidr_block`)
+	assert.Contains(t, main, `enable_dns = var.enable_dns`)
+
+	out := by["aws_vpc/outputs.tf"]
+	assert.Contains(t, out, `output "id"`)
+	assert.Regexp(t, `value\s+= aws_vpc\.this\.id`, out)
+	assert.Contains(t, out, `output "arn"`)
+
+	readme := by["aws_vpc/README.md"]
+	assert.Contains(t, readme, "# aws_vpc")
+	assert.Contains(t, readme, "## Inputs")
+	assert.Contains(t, readme, "## Outputs")
+	assert.Contains(t, readme, "## Requirements")
+}
+
+func TestGenerate_DataSourceUsesDataPrefix(t *testing.T) {
+	t.Parallel()
+	plan, err := Plan(planSchema(), PlanOptions{Modules: []string{"data.aws_caller"}})
+	require.NoError(t, err)
+	files, err := Generate(plan)
+	require.NoError(t, err)
+
+	by := byName(files)
+	main := by["aws_caller/main.tf"]
+	assert.Contains(t, main, `data "aws_caller" "this"`)
+
+	out := by["aws_caller/outputs.tf"]
+	assert.Regexp(t, `value\s+= data\.aws_caller\.this\.account_id`, out)
+}
+
+func TestGenerate_SensitivePropagates(t *testing.T) {
+	t.Parallel()
+	plan, err := Plan(planSchema(), PlanOptions{Modules: []string{"aws_secret"}})
+	require.NoError(t, err)
+	files, err := Generate(plan)
+	require.NoError(t, err)
+	by := byName(files)
+
+	vars := by["aws_secret/variables.tf"]
+	assert.Regexp(t, `sensitive\s+= true`, vars)
+
+	outs := by["aws_secret/outputs.tf"]
+	assert.Contains(t, outs, `output "secret_value"`)
+	assert.Regexp(t, `sensitive\s+= true`, outs)
+}
+
+func TestGenerate_NestedBlockRendersTODO(t *testing.T) {
+	t.Parallel()
+	plan, err := Plan(planSchema(), PlanOptions{Modules: []string{"aws_instance"}})
+	require.NoError(t, err)
+	files, err := Generate(plan)
+	require.NoError(t, err)
+	by := byName(files)
+
+	main := by["aws_instance/main.tf"]
+	assert.Contains(t, main, `ami = var.ami`)
+	assert.Contains(t, main, "TODO: configure nested block")
+
+	vars := by["aws_instance/variables.tf"]
+	assert.Contains(t, vars, `variable "ebs_block_device"`)
+	assert.Regexp(t, `type\s+= any`, vars)
+}
+
+func byName(files []GeneratedFile) map[string]string {
+	m := make(map[string]string, len(files))
+	for _, f := range files {
+		m[f.Path] = string(f.Content)
+	}
+	return m
 }

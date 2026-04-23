@@ -243,6 +243,94 @@ func cycleKey(c []string) string {
 	return out
 }
 
+// TopoOrderSubgraph returns the nodes of subset sorted in dependency
+// order: if A depends on B and both are in subset, B appears before A.
+// Edges pointing outside subset are ignored (the caller is responsible
+// for materialising those inputs from outside the plan).
+//
+// Returns a *CycleError when the subgraph contains at least one cycle.
+// Subset names that are not part of g are returned in the output in
+// alphabetical order at the tail — they contribute no edges but are
+// preserved so the caller can still render them as isolated nodes.
+//
+// The implementation is Kahn's algorithm with deterministic tie-breaking
+// (alphabetical over ready nodes) so the output is stable for a given
+// input.
+func TopoOrderSubgraph(g *Graph, subset []string) ([]string, error) {
+	if g == nil {
+		out := append([]string(nil), subset...)
+		sort.Strings(out)
+		return out, nil
+	}
+	inSet := make(map[string]struct{}, len(subset))
+	for _, n := range subset {
+		if n == "" {
+			continue
+		}
+		inSet[n] = struct{}{}
+	}
+	indeg := make(map[string]int, len(inSet))
+	out := make(map[string][]string, len(inSet))
+	for n := range inSet {
+		indeg[n] = 0
+	}
+	for n := range inSet {
+		for _, e := range g.out[n] {
+			if _, ok := inSet[e.To]; !ok {
+				continue
+			}
+			if e.From == e.To {
+				continue
+			}
+			// Edge From→To means From depends on To, so To must appear
+			// before From in the topo order: add To → From to the Kahn
+			// graph (reverse direction) and count an in-degree on From.
+			out[e.To] = append(out[e.To], e.From)
+			indeg[e.From]++
+		}
+	}
+	for k := range out {
+		sort.Strings(out[k])
+	}
+	ready := make([]string, 0, len(inSet))
+	for n, d := range indeg {
+		if d == 0 {
+			ready = append(ready, n)
+		}
+	}
+	sort.Strings(ready)
+	ordered := make([]string, 0, len(inSet))
+	seen := make(map[string]bool, len(inSet))
+	for len(ready) > 0 {
+		n := ready[0]
+		ready = ready[1:]
+		if seen[n] {
+			continue
+		}
+		seen[n] = true
+		ordered = append(ordered, n)
+		next := out[n]
+		for _, m := range next {
+			indeg[m]--
+			if indeg[m] == 0 {
+				ready = append(ready, m)
+			}
+		}
+		sort.Strings(ready)
+	}
+	if len(ordered) != len(inSet) {
+		remaining := make([]string, 0, len(inSet)-len(ordered))
+		for n := range inSet {
+			if !seen[n] {
+				remaining = append(remaining, n)
+			}
+		}
+		sort.Strings(remaining)
+		return nil, &CycleError{Cycle: remaining}
+	}
+	return ordered, nil
+}
+
 // DependencyNode is one node in a resolved dependency tree returned by
 // Graph.Resolve. Children are sorted deterministically (matching the
 // underlying edge order). EdgeFromParent is the edge that reached this

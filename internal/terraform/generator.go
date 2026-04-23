@@ -1,177 +1,305 @@
 package terraform
 
 import (
+	"bytes"
 	"fmt"
+	"path"
+	"sort"
+	"strings"
 
 	"github.com/hashicorp/hcl/v2"
 	"github.com/hashicorp/hcl/v2/hclsyntax"
 	"github.com/hashicorp/hcl/v2/hclwrite"
 	"github.com/zclconf/go-cty/cty"
+
+	"github.com/tiziano093/infra-composer-cli/internal/catalog"
 )
 
-// Generate renders the five core .tf files for the given plan. Files
-// are returned in a stable order (providers, variables, locals, main,
-// outputs) so callers can hash the result deterministically.
+// Generate renders the per-module .tf files for every GeneratedModule
+// in plan. The returned slice contains files in deterministic order:
+// modules in the plan order, files within a module in a fixed order
+// (version, variables, main, outputs, README). Paths include the
+// module folder so callers can write them straight to --output-dir.
 func Generate(plan *ComposePlan) ([]GeneratedFile, error) {
 	if plan == nil {
 		return nil, fmt.Errorf("terraform: nil plan")
 	}
-	files := make([]GeneratedFile, 0, 5)
-	for _, step := range []struct {
+	out := make([]GeneratedFile, 0, len(plan.Modules)*5+len(RootStackFiles))
+	for i := range plan.Modules {
+		m := &plan.Modules[i]
+		files, err := renderModule(m)
+		if err != nil {
+			return nil, fmt.Errorf("render %s: %w", m.ResourceType, err)
+		}
+		out = append(out, files...)
+	}
+	if plan.EmitRootStack {
+		rootFiles, err := RenderRootStack(plan)
+		if err != nil {
+			return nil, fmt.Errorf("render root stack: %w", err)
+		}
+		out = append(out, rootFiles...)
+	}
+	return out, nil
+}
+
+// renderModule emits the five files for a single GeneratedModule.
+// Paths are scoped under the module folder (`<resource_type>/...`).
+func renderModule(m *GeneratedModule) ([]GeneratedFile, error) {
+	steps := []struct {
 		name string
-		fn   func(*ComposePlan) ([]byte, error)
+		fn   func(*GeneratedModule) ([]byte, error)
 	}{
-		{"providers.tf", renderProviders},
+		{"version.tf", renderVersion},
 		{"variables.tf", renderVariables},
-		{"locals.tf", renderLocals},
 		{"main.tf", renderMain},
 		{"outputs.tf", renderOutputs},
-	} {
-		body, err := step.fn(plan)
+		{"README.md", renderReadme},
+	}
+	out := make([]GeneratedFile, 0, len(steps))
+	for _, s := range steps {
+		body, err := s.fn(m)
 		if err != nil {
-			return nil, fmt.Errorf("render %s: %w", step.name, err)
+			return nil, fmt.Errorf("render %s: %w", s.name, err)
 		}
-		files = append(files, GeneratedFile{Path: step.name, Content: body})
+		out = append(out, GeneratedFile{
+			Module:  m.ResourceType,
+			Path:    path.Join(m.ResourceType, s.name),
+			Content: body,
+		})
 	}
-	return files, nil
+	return out, nil
 }
 
-// renderProviders emits a `terraform { required_providers { ... } }`
-// block plus a single empty `provider "<name>" {}` placeholder. Provider
-// authentication is intentionally left to the user (env vars, profiles,
-// etc.) — the comment in the block calls that out.
-func renderProviders(plan *ComposePlan) ([]byte, error) {
+// renderVersion emits the terraform { required_version; required_providers }
+// block with the real provider source. No `provider "<name>" {}` block
+// is emitted: provider configuration is the caller's responsibility,
+// not the module's, matching the reference style.
+func renderVersion(m *GeneratedModule) ([]byte, error) {
 	f := hclwrite.NewEmptyFile()
 	root := f.Body()
+	tf := root.AppendNewBlock("terraform", nil).Body()
+	tf.SetAttributeValue("required_version", cty.StringVal(">= 1.0.0"))
+	rp := tf.AppendNewBlock("required_providers", nil).Body()
 
-	tfBlock := root.AppendNewBlock("terraform", nil)
-	tfBody := tfBlock.Body()
-	rp := tfBody.AppendNewBlock("required_providers", nil)
-	attrs := []hclwrite.ObjectAttrTokens{{
-		Name: hclwrite.TokensForIdentifier(plan.ProviderName),
-		Value: hclwrite.TokensForObject([]hclwrite.ObjectAttrTokens{
-			{Name: hclwrite.TokensForIdentifier("source"), Value: hclwrite.TokensForValue(cty.StringVal(plan.Provider))},
-			{Name: hclwrite.TokensForIdentifier("version"), Value: hclwrite.TokensForValue(cty.StringVal(versionConstraint(plan.ProviderVersion)))},
-		}),
-	}}
-	rp.Body().SetAttributeRaw(plan.ProviderName, hclwrite.TokensForObject(attrs))
-
-	root.AppendNewline()
-	provBlock := root.AppendNewBlock("provider", []string{plan.ProviderName})
-	provBlock.Body().AppendUnstructuredTokens(hclwrite.Tokens{
-		{Type: hclsyntax.TokenComment, Bytes: []byte("  # TODO: configure provider authentication and region as needed.\n")},
-	})
-
-	return f.Bytes(), nil
-}
-
-// renderVariables emits one variable block per ExternalInput across
-// every module in the plan. ExternalInputs already carry the prefixed
-// name to avoid collisions.
-func renderVariables(plan *ComposePlan) ([]byte, error) {
-	f := hclwrite.NewEmptyFile()
-	root := f.Body()
-	first := true
-	for _, m := range plan.Modules {
-		for _, in := range m.ExternalInputs {
-			if !first {
-				root.AppendNewline()
-			}
-			first = false
-			block := root.AppendNewBlock("variable", []string{in.VarName})
-			body := block.Body()
-			if in.Description != "" {
-				body.SetAttributeValue("description", cty.StringVal(in.Description))
-			}
-			if t := in.Type; t != "" {
-				body.SetAttributeRaw("type", rawTypeTokens(t))
-			}
-			if in.Sensitive {
-				body.SetAttributeValue("sensitive", cty.BoolVal(true))
-			}
-			if !in.Required {
-				if in.Default == nil {
-					body.SetAttributeValue("default", cty.NullVal(cty.DynamicPseudoType))
-				} else {
-					val, err := anyToCty(in.Default)
-					if err != nil {
-						return nil, fmt.Errorf("variable %s default: %w", in.VarName, err)
-					}
-					body.SetAttributeValue("default", val)
-				}
-			}
-		}
+	attrs := []hclwrite.ObjectAttrTokens{
+		{Name: hclwrite.TokensForIdentifier("source"), Value: hclwrite.TokensForValue(cty.StringVal(m.ProviderSource))},
 	}
+	if m.ProviderVersionConstraint != "" {
+		attrs = append(attrs, hclwrite.ObjectAttrTokens{
+			Name: hclwrite.TokensForIdentifier("version"), Value: hclwrite.TokensForValue(cty.StringVal(m.ProviderVersionConstraint)),
+		})
+	}
+	rp.SetAttributeRaw(m.ProviderLocalName, hclwrite.TokensForObject(attrs))
 	return f.Bytes(), nil
 }
 
-// renderLocals emits a small placeholder locals block. Cross-module
-// wiring lives directly in the module call attributes; locals.tf is
-// reserved for stack-level values the user typically tweaks.
-func renderLocals(plan *ComposePlan) ([]byte, error) {
-	f := hclwrite.NewEmptyFile()
-	body := f.Body()
-	block := body.AppendNewBlock("locals", nil)
-	block.Body().SetAttributeValue("stack_name", cty.StringVal("TODO"))
-	return f.Bytes(), nil
-}
-
-// renderMain emits one module block per ResolvedModule. Wired inputs
-// reference `module.<other>.<output>`; external inputs reference
-// `var.<varname>`. Module `version` is only emitted for SourceRegistry.
-func renderMain(plan *ComposePlan) ([]byte, error) {
+// renderVariables emits one `variable "<name>" {}` block per
+// ModuleVariable, in original (catalog) order.
+func renderVariables(m *GeneratedModule) ([]byte, error) {
+	if len(m.Variables) == 0 {
+		return []byte{}, nil
+	}
 	f := hclwrite.NewEmptyFile()
 	root := f.Body()
-	for i, m := range plan.Modules {
+	for i, v := range m.Variables {
 		if i > 0 {
 			root.AppendNewline()
 		}
-		block := root.AppendNewBlock("module", []string{m.Instance})
+		block := root.AppendNewBlock("variable", []string{v.Name})
 		body := block.Body()
-		if m.Source.Kind == SourcePlaceholder {
-			body.AppendUnstructuredTokens(hclwrite.Tokens{
-				{Type: hclsyntax.TokenComment, Bytes: []byte("  # TODO: replace placeholder source with the real module URL.\n")},
-			})
+		typeExpr := v.Type
+		if v.Nested || typeExpr == "" {
+			typeExpr = "any"
 		}
-		body.SetAttributeValue("source", cty.StringVal(sourceWithRef(m.Source)))
-		if m.Source.Kind == SourceRegistry && m.Source.Ref != "" {
-			body.SetAttributeValue("version", cty.StringVal(m.Source.Ref))
+		body.SetAttributeRaw("type", rawTypeTokens(typeExpr))
+		if v.Description != "" {
+			body.SetAttributeValue("description", cty.StringVal(v.Description))
 		}
-		// Render inputs in catalog declaration order (already preserved
-		// by ResolvedModule construction).
-		for _, w := range m.WiredInputs {
-			body.SetAttributeRaw(w.VarName, traversalTokens("module", w.FromInstance, w.FromOutput))
+		if v.Sensitive {
+			body.SetAttributeValue("sensitive", cty.BoolVal(true))
 		}
-		for _, e := range m.ExternalInputs {
-			body.SetAttributeRaw(e.LocalName, traversalTokens("var", e.VarName))
+		if !v.Required {
+			if v.Default == nil {
+				body.SetAttributeValue("default", cty.NullVal(cty.DynamicPseudoType))
+			} else {
+				val, err := anyToCty(v.Default)
+				if err != nil {
+					return nil, fmt.Errorf("variable %s default: %w", v.Name, err)
+				}
+				body.SetAttributeValue("default", val)
+			}
 		}
 	}
 	return f.Bytes(), nil
 }
 
-// renderOutputs emits one stack-level output per source-module output.
-func renderOutputs(plan *ComposePlan) ([]byte, error) {
+// renderMain emits the single `resource|data "<type>" "this" {}` block
+// at the heart of the generated module. Each non-nested variable maps
+// to a `<name> = var.<name>` assignment; nested-block variables get a
+// commented TODO instead so users complete the structural HCL by hand.
+func renderMain(m *GeneratedModule) ([]byte, error) {
 	f := hclwrite.NewEmptyFile()
 	root := f.Body()
-	first := true
-	for _, m := range plan.Modules {
-		for _, o := range m.StackOutputs {
-			if !first {
-				root.AppendNewline()
-			}
-			first = false
-			block := root.AppendNewBlock("output", []string{o.ExportedName})
-			body := block.Body()
-			if o.Description != "" {
-				body.SetAttributeValue("description", cty.StringVal(o.Description))
-			}
-			body.SetAttributeRaw("value", traversalTokens("module", o.Instance, o.Output))
-			if o.Sensitive {
-				body.SetAttributeValue("sensitive", cty.BoolVal(true))
-			}
+	blockType := "resource"
+	if m.Kind == catalog.ModuleTypeData {
+		blockType = "data"
+	}
+	block := root.AppendNewBlock(blockType, []string{m.ResourceType, m.LocalName})
+	body := block.Body()
+
+	scalars := make([]ModuleVariable, 0, len(m.Variables))
+	nested := make([]ModuleVariable, 0)
+	for _, v := range m.Variables {
+		if v.Nested {
+			nested = append(nested, v)
+			continue
+		}
+		scalars = append(scalars, v)
+	}
+	for _, v := range scalars {
+		body.SetAttributeRaw(v.Name, traversalTokens("var", v.Name))
+	}
+	for _, v := range nested {
+		body.AppendUnstructuredTokens(hclwrite.Tokens{
+			{Type: hclsyntax.TokenComment, Bytes: []byte(fmt.Sprintf("# TODO: configure nested block %q manually using var.%s.\n", v.Name, v.Name))},
+		})
+	}
+	return f.Bytes(), nil
+}
+
+// renderOutputs emits one `output "<name>" {}` block per ModuleOutput,
+// referring to the single `<kind>.<type>.this.<name>` traversal.
+func renderOutputs(m *GeneratedModule) ([]byte, error) {
+	if len(m.Outputs) == 0 {
+		return []byte{}, nil
+	}
+	f := hclwrite.NewEmptyFile()
+	root := f.Body()
+	for i, o := range m.Outputs {
+		if i > 0 {
+			root.AppendNewline()
+		}
+		block := root.AppendNewBlock("output", []string{o.Name})
+		body := block.Body()
+		body.SetAttributeRaw("value", outputTraversal(m, o.Name))
+		if o.Description != "" {
+			body.SetAttributeValue("description", cty.StringVal(o.Description))
+		}
+		if o.Sensitive {
+			body.SetAttributeValue("sensitive", cty.BoolVal(true))
 		}
 	}
 	return f.Bytes(), nil
+}
+
+// outputTraversal builds the `<kind>.<type>.this.<name>` reference
+// honouring resource vs data block syntax (`data.` prefix for data
+// sources, bare type for resources).
+func outputTraversal(m *GeneratedModule, attr string) hclwrite.Tokens {
+	if m.Kind == catalog.ModuleTypeData {
+		return traversalTokens("data", m.ResourceType, m.LocalName, attr)
+	}
+	return traversalTokens(m.ResourceType, m.LocalName, attr)
+}
+
+// renderReadme emits a markdown README documenting the module's
+// provider, inputs, outputs, and v1 limitations. Style mimics the
+// terraform-docs default tables so the output is familiar.
+func renderReadme(m *GeneratedModule) ([]byte, error) {
+	var buf bytes.Buffer
+	fmt.Fprintf(&buf, "# %s\n\n", m.ResourceType)
+	if m.Description != "" {
+		fmt.Fprintf(&buf, "%s\n\n", m.Description)
+	}
+	kindLabel := "resource"
+	if m.Kind == catalog.ModuleTypeData {
+		kindLabel = "data source"
+	}
+	fmt.Fprintf(&buf, "Generated %s module wrapping `%s`.\n\n", kindLabel, m.ResourceType)
+
+	buf.WriteString("## Requirements\n\n")
+	buf.WriteString("| Name | Source | Version |\n|------|--------|---------|\n")
+	fmt.Fprintf(&buf, "| %s | `%s` | `%s` |\n\n", m.ProviderLocalName, m.ProviderSource, fallback(m.ProviderVersionConstraint, "n/a"))
+
+	if len(m.Variables) > 0 {
+		buf.WriteString("## Inputs\n\n")
+		buf.WriteString("| Name | Type | Required | Default | Description |\n")
+		buf.WriteString("|------|------|----------|---------|-------------|\n")
+		vars := append([]ModuleVariable(nil), m.Variables...)
+		sort.SliceStable(vars, func(i, j int) bool { return vars[i].Name < vars[j].Name })
+		for _, v := range vars {
+			required := "no"
+			if v.Required {
+				required = "**yes**"
+			}
+			defaultStr := "n/a"
+			if !v.Required {
+				defaultStr = formatDefault(v.Default)
+			}
+			typeStr := v.Type
+			if v.Nested || typeStr == "" {
+				typeStr = "any"
+			}
+			fmt.Fprintf(&buf, "| `%s` | `%s` | %s | %s | %s |\n",
+				v.Name, typeStr, required, defaultStr, escapeMarkdownCell(v.Description))
+		}
+		buf.WriteString("\n")
+	}
+
+	if len(m.Outputs) > 0 {
+		buf.WriteString("## Outputs\n\n")
+		buf.WriteString("| Name | Description |\n|------|-------------|\n")
+		outs := append([]ModuleOutput(nil), m.Outputs...)
+		sort.SliceStable(outs, func(i, j int) bool { return outs[i].Name < outs[j].Name })
+		for _, o := range outs {
+			fmt.Fprintf(&buf, "| `%s` | %s |\n", o.Name, escapeMarkdownCell(o.Description))
+		}
+		buf.WriteString("\n")
+	}
+
+	buf.WriteString("## v1 limitations\n\n")
+	buf.WriteString("- Single static block (no `for_each`/`count`).\n")
+	buf.WriteString("- Nested blocks are surfaced as `any`-typed variables; their inner HCL must be completed manually.\n")
+	buf.WriteString("- No `dynamic` block emission.\n")
+
+	if len(m.Warnings) > 0 {
+		buf.WriteString("\n## Generation warnings\n\n")
+		for _, w := range m.Warnings {
+			fmt.Fprintf(&buf, "- %s\n", w)
+		}
+	}
+	return buf.Bytes(), nil
+}
+
+func fallback(s, def string) string {
+	if s == "" {
+		return def
+	}
+	return s
+}
+
+func escapeMarkdownCell(s string) string {
+	if s == "" {
+		return ""
+	}
+	s = strings.ReplaceAll(s, "|", "\\|")
+	s = strings.ReplaceAll(s, "\n", " ")
+	return s
+}
+
+func formatDefault(v any) string {
+	if v == nil {
+		return "`null`"
+	}
+	switch x := v.(type) {
+	case string:
+		return fmt.Sprintf("`%q`", x)
+	case bool, float64, int, int64:
+		return fmt.Sprintf("`%v`", x)
+	default:
+		return "see schema"
+	}
 }
 
 // rawTypeTokens emits a Terraform variable type expression
@@ -185,8 +313,8 @@ func rawTypeTokens(typeExpr string) hclwrite.Tokens {
 	}}
 }
 
-// traversalTokens builds an attribute traversal like `module.foo.bar`
-// from individual identifier segments.
+// traversalTokens builds an attribute traversal like `var.foo` from
+// individual identifier segments.
 func traversalTokens(parts ...string) hclwrite.Tokens {
 	traversal := make(hcl.Traversal, 0, len(parts))
 	for i, p := range parts {
@@ -199,67 +327,8 @@ func traversalTokens(parts ...string) hclwrite.Tokens {
 	return hclwrite.TokensForTraversal(traversal)
 }
 
-// versionConstraint converts a literal provider version into a `~>` pin
-// at the major.minor level. Falls back to the raw input when parsing
-// fails, so weird tags still render even if unconventional.
-func versionConstraint(version string) string {
-	if version == "" {
-		return ""
-	}
-	v := version
-	if v[0] == 'v' {
-		v = v[1:]
-	}
-	dot1 := -1
-	dot2 := -1
-	for i := 0; i < len(v); i++ {
-		if v[i] == '.' {
-			if dot1 < 0 {
-				dot1 = i
-			} else if dot2 < 0 {
-				dot2 = i
-				break
-			}
-		}
-	}
-	if dot1 < 0 || dot2 < 0 {
-		return v
-	}
-	return "~> " + v[:dot2]
-}
-
-// sourceWithRef returns the rendered `source = "…"` string. Git refs
-// are appended via `?ref=`; registry refs are emitted in a separate
-// `version` attribute by the caller. Placeholder sources are returned
-// verbatim so the user spots them immediately.
-func sourceWithRef(s SourceSpec) string {
-	switch s.Kind {
-	case SourceGit:
-		if s.Ref == "" {
-			return s.Address
-		}
-		if containsRune(s.Address, '?') {
-			return s.Address + "&ref=" + s.Ref
-		}
-		return s.Address + "?ref=" + s.Ref
-	default:
-		return s.Address
-	}
-}
-
-func containsRune(s string, r rune) bool {
-	for _, c := range s {
-		if c == r {
-			return true
-		}
-	}
-	return false
-}
-
 // anyToCty converts a JSON-decoded Go value (the shape json.Unmarshal
 // into `any` produces) to a cty.Value suitable for hclwrite.
-// Supported: nil, bool, float64, string, []any, map[string]any.
-// Unknown types yield an error so we never silently drop data.
 func anyToCty(v any) (cty.Value, error) {
 	switch x := v.(type) {
 	case nil:

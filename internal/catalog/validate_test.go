@@ -98,6 +98,7 @@ func TestValidate_ModuleErrors(t *testing.T) {
 			{Name: "1bad", Type: ModuleTypeResource},
 			{Name: "ok", Type: ModuleType("module")},
 			{Name: "ok", Type: ModuleTypeResource},
+			{Name: "ok", Type: ModuleTypeResource},
 		},
 	}
 	err := s.Validate()

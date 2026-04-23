@@ -169,3 +169,49 @@ func TestBuilder_Build_FromFakeFixture(t *testing.T) {
 		t.Fatalf("want 3 modules, got %d", len(s.Modules))
 	}
 }
+
+func TestBuilder_Build_IncludeExcludeFilters(t *testing.T) {
+	t.Helper()
+	// Reuse the existing fake provider fixture under
+	// test/fixtures/registry/hashicorp/aws which exposes 3 modules:
+	// aws_vpc, aws_subnet (resources) and aws_caller_identity (data).
+	root := repoFixturesDir(t, "registry")
+	client := registry.NewFakeClient(root)
+	b := NewBuilder(client)
+
+	// Include only modules starting with "aws_v*" -> aws_vpc.
+	s, err := b.Build(context.Background(), BuildOptions{
+		Provider: "hashicorp/aws",
+		Include:  []string{"aws_v*"},
+		Now:      func() time.Time { return time.Unix(0, 0).UTC() },
+	})
+	if err != nil {
+		t.Fatalf("build with include: %v", err)
+	}
+	if len(s.Modules) != 1 || s.Modules[0].Name != "aws_vpc" {
+		t.Fatalf("include filter: got %+v", moduleNames(s.Modules))
+	}
+
+	// Exclude data sources by pattern -> aws_caller_identity gone.
+	s, err = b.Build(context.Background(), BuildOptions{
+		Provider: "hashicorp/aws",
+		Exclude:  []string{"aws_caller_*"},
+		Now:      func() time.Time { return time.Unix(0, 0).UTC() },
+	})
+	if err != nil {
+		t.Fatalf("build with exclude: %v", err)
+	}
+	for _, m := range s.Modules {
+		if m.Name == "aws_caller_identity" {
+			t.Fatalf("exclude filter let aws_caller_identity through: %+v", moduleNames(s.Modules))
+		}
+	}
+}
+
+func moduleNames(ms []ModuleEntry) []string {
+	out := make([]string, len(ms))
+	for i, m := range ms {
+		out[i] = m.Name
+	}
+	return out
+}

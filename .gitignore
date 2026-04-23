@@ -25,6 +25,10 @@ coverage.*
 .env
 .env.local
 
+# Generated outputs
+/catalog/
+/infrastructure/
+
 # OS
 .DS_Store
 Thumbs.db
