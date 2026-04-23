@@ -111,16 +111,6 @@ type ComposePlan struct {
 	// Warnings collects plan-level diagnostics that are not specific
 	// to a single module.
 	Warnings []string
-	// EmitRootStack requests that the generator additionally render a
-	// top-level stack under the output directory root: providers.tf,
-	// versions.tf, variables.tf, locals.tf, main.tf and outputs.tf. The
-	// root stack consumes the per-module folders via `module` blocks
-	// and wires cross-module references from ModuleVariable.References.
-	EmitRootStack bool
-	// TopoOrder is the topological ordering of Modules by name when
-	// EmitRootStack is true: dependencies first, dependents last. Empty
-	// when the root stack is disabled. Populated by Plan().
-	TopoOrder []string
 }
 
 // GeneratedFile is one rendered artefact returned by Generate. Path is

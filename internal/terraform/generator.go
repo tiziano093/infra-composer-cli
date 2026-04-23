@@ -24,7 +24,7 @@ func Generate(plan *ComposePlan) ([]GeneratedFile, error) {
 	if plan == nil {
 		return nil, fmt.Errorf("terraform: nil plan")
 	}
-	out := make([]GeneratedFile, 0, len(plan.Modules)*5+len(RootStackFiles))
+	out := make([]GeneratedFile, 0, len(plan.Modules)*5)
 	for i := range plan.Modules {
 		m := &plan.Modules[i]
 		files, err := renderModule(m)
@@ -32,13 +32,6 @@ func Generate(plan *ComposePlan) ([]GeneratedFile, error) {
 			return nil, fmt.Errorf("render %s: %w", m.ResourceType, err)
 		}
 		out = append(out, files...)
-	}
-	if plan.EmitRootStack {
-		rootFiles, err := RenderRootStack(plan)
-		if err != nil {
-			return nil, fmt.Errorf("render root stack: %w", err)
-		}
-		out = append(out, rootFiles...)
 	}
 	return out, nil
 }

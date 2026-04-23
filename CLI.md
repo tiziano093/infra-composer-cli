@@ -173,17 +173,23 @@ infra-composer compose \
   --output-dir <dir> \
   [--dry-run] \
   [--force] \
-  [--root-stack] \
   [--format text|json]
 ```
 
 | Flag | Default | Description |
 |------|---------|-------------|
 | `--modules` | | Space- or comma-separated module names. Qualify with `resource.` or `data.` to disambiguate |
+| `--filter` | | Glob pattern(s) to select modules (e.g. `aws_s3*`) |
+| `--all` | false | Select every module in the catalog |
 | `--output-dir` | | Parent directory for generated module folders |
 | `--dry-run` | false | Preview planned files without writing |
 | `--force` | false | Overwrite pre-existing generated files |
-| `--root-stack` | true | Also emit a root stack (`main.tf`, `providers.tf`, etc.) |
+
+Alongside the per-module folders the command writes `modules.json` at
+the root of `--output-dir`: a machine-readable manifest describing
+every composed module (folder path, provider, variables, outputs and
+cross-module references). Consumers use it to wire the modules into
+their own environment without reading each folder individually.
 
 **Exit codes:**
 

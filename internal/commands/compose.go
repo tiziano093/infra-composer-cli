@@ -27,14 +27,13 @@ type composeFlags struct {
 	dryRun    bool
 	force     bool
 	format    string
-	rootStack bool
 }
 
 // NewComposeCommand returns the `compose` subcommand. It generates one
 // reusable Terraform module folder per selected catalog entry under
 // --output-dir (or previews the plan in dry-run mode).
 func NewComposeCommand() *cobra.Command {
-	f := &composeFlags{rootStack: true}
+	f := &composeFlags{}
 	cmd := &cobra.Command{
 		Use:   "compose",
 		Short: "Generate reusable Terraform module folders from catalog entries",
@@ -94,8 +93,7 @@ overwrite pre-existing generated files unless --force is given.`,
 			}
 
 			plan, err := terraform.Plan(s, terraform.PlanOptions{
-				Modules:       modules,
-				EmitRootStack: f.rootStack,
+				Modules: modules,
 			})
 			if err != nil {
 				return mapPlanError(err)
@@ -105,6 +103,12 @@ overwrite pre-existing generated files unless --force is given.`,
 			if err != nil {
 				return clierr.Wrap(clierr.ExitGeneric, "generate terraform files", err)
 			}
+			manifest := terraform.BuildManifest(plan, schemaPath)
+			manifestFile, err := terraform.RenderManifestFile(manifest)
+			if err != nil {
+				return clierr.Wrap(clierr.ExitGeneric, "render compose manifest", err)
+			}
+			files = append(files, manifestFile)
 
 			format := chooseFormat(f.format, rt)
 			if f.dryRun {
@@ -125,7 +129,6 @@ overwrite pre-existing generated files unless --force is given.`,
 	cmd.Flags().BoolVar(&f.dryRun, "dry-run", false, "Print planned folders/files (paths + sha256) without writing")
 	cmd.Flags().BoolVar(&f.force, "force", false, "Overwrite generated files in pre-existing module folders")
 	cmd.Flags().StringVar(&f.format, "format", "", "Output format: text|json (overrides global --format)")
-	cmd.Flags().BoolVar(&f.rootStack, "root-stack", true, "Also emit a top-level stack (providers.tf, versions.tf, variables.tf, locals.tf, main.tf, outputs.tf) that composes the per-module folders")
 	return cmd
 }
 
@@ -179,7 +182,6 @@ func filterModules(s *catalog.Schema, patterns []string) ([]string, error) {
 }
 
 func mapPlanError(err error) error {
-	var cyc *catalog.CycleError
 	switch {
 	case errors.Is(err, catalog.ErrUnknownModule):
 		return cliError(clierr.ExitModuleNotFound, err.Error(),
@@ -187,9 +189,6 @@ func mapPlanError(err error) error {
 	case errors.Is(err, terraform.ErrAmbiguousSelection):
 		return cliError(clierr.ExitInvalidArgs, err.Error(),
 			"use the kind-qualified form (e.g. \"resource.<name>\" or \"data.<name>\")")
-	case errors.As(err, &cyc):
-		return cliError(clierr.ExitInvalidArgs, err.Error(),
-			"break the cycle by removing one of the references, or disable the root stack with --root-stack=false")
 	}
 	return clierr.Wrap(clierr.ExitGeneric, "build compose plan", err)
 }
@@ -282,17 +281,13 @@ type composeJSONModule struct {
 	Warnings []string          `json:"warnings,omitempty"`
 }
 
-type composeJSONRootStack struct {
-	Files []composeJSONFile `json:"files"`
-}
-
 type composeJSONSummary struct {
-	OutputDir string                `json:"output_dir,omitempty"`
-	DryRun    bool                  `json:"dry_run"`
-	Provider  string                `json:"provider,omitempty"`
-	Modules   []composeJSONModule   `json:"modules"`
-	RootStack *composeJSONRootStack `json:"root_stack,omitempty"`
-	Warnings  []string              `json:"warnings,omitempty"`
+	OutputDir string              `json:"output_dir,omitempty"`
+	DryRun    bool                `json:"dry_run"`
+	Provider  string              `json:"provider,omitempty"`
+	Modules   []composeJSONModule `json:"modules"`
+	Manifest  *composeJSONFile    `json:"manifest,omitempty"`
+	Warnings  []string            `json:"warnings,omitempty"`
 }
 
 func renderComposeDryRun(out io.Writer, plan *terraform.ComposePlan, files []terraform.GeneratedFile, format string) error {
@@ -317,7 +312,7 @@ func renderComposeWriteSummary(out io.Writer, plan *terraform.ComposePlan, files
 
 func composeSummary(dir string, dryRun bool, plan *terraform.ComposePlan, files []terraform.GeneratedFile) composeJSONSummary {
 	byModule := make(map[string][]composeJSONFile, len(plan.Modules))
-	var rootFiles []composeJSONFile
+	var manifest *composeJSONFile
 	for _, f := range files {
 		entry := composeJSONFile{
 			Path:   f.Path,
@@ -325,7 +320,10 @@ func composeSummary(dir string, dryRun bool, plan *terraform.ComposePlan, files 
 			Bytes:  len(f.Content),
 		}
 		if f.Module == "" {
-			rootFiles = append(rootFiles, entry)
+			if f.Path == terraform.ManifestFileName {
+				e := entry
+				manifest = &e
+			}
 			continue
 		}
 		byModule[f.Module] = append(byModule[f.Module], entry)
@@ -340,17 +338,14 @@ func composeSummary(dir string, dryRun bool, plan *terraform.ComposePlan, files 
 			Warnings: m.Warnings,
 		})
 	}
-	summary := composeJSONSummary{
+	return composeJSONSummary{
 		OutputDir: dir,
 		DryRun:    dryRun,
 		Provider:  plan.Provider,
 		Modules:   mods,
+		Manifest:  manifest,
 		Warnings:  plan.Warnings,
 	}
-	if plan.EmitRootStack && len(rootFiles) > 0 {
-		summary.RootStack = &composeJSONRootStack{Files: rootFiles}
-	}
-	return summary
 }
 
 func encodeJSON(out io.Writer, v any) error {
@@ -364,14 +359,14 @@ func renderComposeText(out io.Writer, s composeJSONSummary) error {
 	for _, m := range s.Modules {
 		totalFiles += len(m.Files)
 	}
-	rootCount := 0
-	if s.RootStack != nil {
-		rootCount = len(s.RootStack.Files)
+	manifestNote := ""
+	if s.Manifest != nil {
+		manifestNote = fmt.Sprintf(" + %s", s.Manifest.Path)
 	}
 	if s.DryRun {
-		fmt.Fprintf(out, "Dry-run: %d module(s), %d file(s) planned (+ %d root-stack file(s)).\n", len(s.Modules), totalFiles, rootCount)
+		fmt.Fprintf(out, "Dry-run: %d module(s), %d file(s) planned%s.\n", len(s.Modules), totalFiles, manifestNote)
 	} else {
-		fmt.Fprintf(out, "Wrote %d module(s), %d file(s) to %s (+ %d root-stack file(s)).\n", len(s.Modules), totalFiles, s.OutputDir, rootCount)
+		fmt.Fprintf(out, "Wrote %d module(s), %d file(s) to %s%s.\n", len(s.Modules), totalFiles, s.OutputDir, manifestNote)
 	}
 	for _, m := range s.Modules {
 		fmt.Fprintf(out, "\n%s/  (%s)\n", m.Folder, m.Kind)
@@ -382,11 +377,8 @@ func renderComposeText(out io.Writer, s composeJSONSummary) error {
 			fmt.Fprintf(out, "  ! %s\n", w)
 		}
 	}
-	if s.RootStack != nil && len(s.RootStack.Files) > 0 {
-		fmt.Fprintln(out, "\nRoot stack")
-		for _, f := range s.RootStack.Files {
-			fmt.Fprintf(out, "  %s  %s  (%d bytes)\n", f.Path, f.SHA256[:12], f.Bytes)
-		}
+	if s.Manifest != nil {
+		fmt.Fprintf(out, "\nManifest\n  %s  %s  (%d bytes)\n", s.Manifest.Path, s.Manifest.SHA256[:12], s.Manifest.Bytes)
 	}
 	if len(s.Warnings) > 0 {
 		fmt.Fprintln(out, "\nPlan warnings:")

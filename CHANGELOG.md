@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Removed
+- `compose --root-stack` and the root-stack generator
+  (`internal/terraform/rootstack.go`). Rationale: the aggregated
+  `main.tf`/`variables.tf`/`outputs.tf`/`providers.tf` emitted at the
+  root of `--output-dir` were a thin skeleton that could not match the
+  wide range of real consumption patterns (per-env backend.hcl, tfvars
+  bundles, `for_each` loops, stack objects). Consumers build their own
+  environment layer instead.
+
+### Added
+- `modules.json` manifest written at the root of `--output-dir` by
+  `compose`. Machine-readable contract describing every composed
+  module (folder path, provider, variables, outputs, cross-module
+  references) so downstream tooling and human reviewers can discover
+  modules without opening each generated folder. Reuses
+  `catalog.ModuleEntry` so the format aligns with the existing
+  catalog schema.
+
 ## [1.0.0] — 2026-04-24
 
 ### Added

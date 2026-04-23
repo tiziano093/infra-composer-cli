@@ -81,26 +81,47 @@ infrastructure/
 │   ├── version.tf
 │   ├── variables.tf
 │   ├── main.tf
-│   └── outputs.tf
+│   ├── outputs.tf
+│   └── README.md
 ├── random_pet/
 │   ├── version.tf
 │   ├── variables.tf
 │   ├── main.tf
-│   └── outputs.tf
-├── providers.tf
-├── variables.tf
-├── locals.tf
-├── main.tf
-└── outputs.tf
+│   ├── outputs.tf
+│   └── README.md
+└── modules.json
 ```
 
-### 5. Apply with Terraform
+Each folder is a self-contained Terraform module (one resource or
+data source). Wire them into your own environment stack — the CLI
+does not generate an opinionated root module.
+
+### 5. Discover modules via `modules.json`
+
+The manifest at the root of `--output-dir` summarises every composed
+module: path, provider, variables (with types, defaults, references),
+and outputs. Inspect it with `jq`:
 
 ```bash
-cd infrastructure
+jq '.modules[] | {path, name: .entry.name, required: [.entry.variables[] | select(.required) | .name]}' \
+   infrastructure/modules.json
+```
+
+### 6. Use a module in your environment
+
+```hcl
+module "pet" {
+  source = "../infrastructure/random_pet"
+  length = 2
+}
+```
+
+Run Terraform against the module folder you picked:
+
+```bash
+cd infrastructure/random_pet
 terraform init
 terraform plan
-terraform apply
 ```
 
 ---

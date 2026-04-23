@@ -14,11 +14,6 @@ import (
 // `resource.aws_vpc`) to disambiguate when both exist.
 type PlanOptions struct {
 	Modules []string
-	// EmitRootStack requests a top-level stack that composes the per-module
-	// folders via `module` blocks and wires cross-module references.
-	// When set, Plan() also runs cycle detection and a topological sort
-	// on the selected subgraph and populates ComposePlan.TopoOrder.
-	EmitRootStack bool
 }
 
 // ErrAmbiguousSelection is returned when a bare module name resolves
@@ -81,18 +76,6 @@ func Plan(s *catalog.Schema, opts PlanOptions) (*ComposePlan, error) {
 		}
 		seen[k] = struct{}{}
 		plan.Modules = append(plan.Modules, buildModule(entry, providerLocal, s.Provider, versionPin))
-	}
-	if opts.EmitRootStack {
-		plan.EmitRootStack = true
-		selected := make([]string, 0, len(plan.Modules))
-		for _, m := range plan.Modules {
-			selected = append(selected, m.ResourceType)
-		}
-		order, err := catalog.TopoOrderSubgraph(catalog.BuildGraph(s), selected)
-		if err != nil {
-			return nil, fmt.Errorf("compose: %w", err)
-		}
-		plan.TopoOrder = order
 	}
 	return plan, nil
 }
