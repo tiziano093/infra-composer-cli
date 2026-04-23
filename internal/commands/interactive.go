@@ -42,6 +42,7 @@ type interactiveFlags struct {
 	terraformBin string
 	composeDir   string
 	skipCompose  bool
+	selectAll    bool
 }
 
 // NewInteractiveCommand returns the `infra-composer interactive` command
@@ -73,6 +74,7 @@ out to "terraform providers schema -json" under the hood.`,
 	cmd.Flags().StringVar(&f.terraformBin, "terraform-binary", "", "Path to terraform binary (defaults to PATH lookup)")
 	cmd.Flags().StringVar(&f.composeDir, "compose-dir", "", "If set, run `compose --output-dir <dir>` after building")
 	cmd.Flags().BoolVar(&f.skipCompose, "no-compose-prompt", false, "Skip the post-build compose prompt entirely")
+	cmd.Flags().BoolVar(&f.selectAll, "select-all", false, "Skip the resource picker and include every resource and data source")
 	return cmd
 }
 
@@ -122,9 +124,18 @@ func runInteractive(ctx context.Context, cmd *cobra.Command, f *interactiveFlags
 	}
 	sort.Slice(summaries, func(i, j int) bool { return summaries[i].Name < summaries[j].Name })
 
-	picked, err := promptResources(stdin, stdout, stderr, summaries)
-	if err != nil {
-		return mapInteractiveError(err)
+	var picked []string
+	if f.selectAll {
+		picked = make([]string, len(summaries))
+		for i, s := range summaries {
+			picked[i] = s.Name
+		}
+		fmt.Fprintf(stdout, "→ selecting all %d resources and data sources\n", len(picked))
+	} else {
+		picked, err = promptResources(stdin, stdout, stderr, summaries)
+		if err != nil {
+			return mapInteractiveError(err)
+		}
 	}
 	if len(picked) == 0 {
 		return cliError(exitInvalidArgs,
@@ -223,21 +234,37 @@ func promptVersion(in terminal.FileReader, out terminal.FileWriter, errW io.Writ
 	return pick, nil
 }
 
+// selectAllOption is the sentinel entry shown at the top of the resource
+// picker. Choosing it (with or without other items) returns every resource.
+const selectAllOption = "∗ Select ALL"
+
 // promptResources runs a survey.MultiSelect with incremental filtering
-// over the supplied summaries.
+// over the supplied summaries. Picking the "∗ Select ALL" sentinel
+// returns every resource without requiring individual selection.
 func promptResources(in terminal.FileReader, out terminal.FileWriter, errW io.Writer, summaries []registry.ResourceSummary) ([]string, error) {
-	options := make([]string, len(summaries))
-	for i, s := range summaries {
-		options[i] = formatSummary(s)
+	sentinel := fmt.Sprintf("%s (%d resources)", selectAllOption, len(summaries))
+	options := make([]string, 0, len(summaries)+1)
+	options = append(options, sentinel)
+	for _, s := range summaries {
+		options = append(options, formatSummary(s))
 	}
 	picked := []string{}
 	q := &survey.MultiSelect{
-		Message:  fmt.Sprintf("Pick resources (%d available; type to filter):", len(options)),
+		Message:  fmt.Sprintf("Pick resources (%d available; type to filter, Space to select):", len(summaries)),
 		Options:  options,
 		PageSize: 15,
 	}
 	if err := survey.AskOne(q, &picked, withStdio(in, out, errW)); err != nil {
 		return nil, err
+	}
+	for _, p := range picked {
+		if strings.HasPrefix(p, selectAllOption) {
+			all := make([]string, len(summaries))
+			for i, s := range summaries {
+				all[i] = s.Name
+			}
+			return all, nil
+		}
 	}
 	out2 := make([]string, 0, len(picked))
 	for _, p := range picked {

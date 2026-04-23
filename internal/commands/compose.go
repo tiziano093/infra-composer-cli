@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -20,6 +21,8 @@ import (
 type composeFlags struct {
 	schema    string
 	modules   string
+	filter    string
+	all       bool
 	outputDir string
 	dryRun    bool
 	force     bool
@@ -59,10 +62,15 @@ overwrite pre-existing generated files unless --force is given.`,
 				return invalidArgs("no catalog schema configured",
 					"pass --schema <path> or set catalog.schema in config")
 			}
+
 			modules := splitModules(f.modules)
-			if len(modules) == 0 {
+			filterPatterns := splitModules(f.filter)
+			if f.all {
+				filterPatterns = []string{"*"}
+			}
+			if len(modules) == 0 && len(filterPatterns) == 0 {
 				return invalidArgs("no modules selected",
-					"pass --modules \"<name1> <name2>\" or a comma-separated list (use \"resource.<name>\" or \"data.<name>\" to disambiguate)")
+					"pass --modules \"<name1> <name2>\", --filter \"<pattern>\", or --all")
 			}
 			if !f.dryRun && f.outputDir == "" {
 				return invalidArgs("--output-dir is required unless --dry-run is set")
@@ -71,6 +79,18 @@ overwrite pre-existing generated files unless --force is given.`,
 			s, err := catalog.Load(schemaPath)
 			if err != nil {
 				return mapCatalogLoadError(schemaPath, err)
+			}
+
+			if len(filterPatterns) > 0 {
+				matched, ferr := filterModules(s, filterPatterns)
+				if ferr != nil {
+					return invalidArgs(ferr.Error(), "check your --filter glob pattern")
+				}
+				modules = append(modules, matched...)
+			}
+			if len(modules) == 0 {
+				return invalidArgs("no modules matched: filter patterns matched no catalog entries",
+					"run `infra-composer search` to list available modules")
 			}
 
 			plan, err := terraform.Plan(s, terraform.PlanOptions{
@@ -99,6 +119,8 @@ overwrite pre-existing generated files unless --force is given.`,
 
 	cmd.Flags().StringVar(&f.schema, "schema", "", "Path to catalog schema.json (defaults to catalog.schema in config)")
 	cmd.Flags().StringVar(&f.modules, "modules", "", "Modules to compose (space- or comma-separated; e.g. \"aws_vpc data.aws_ami\")")
+	cmd.Flags().StringVar(&f.filter, "filter", "", "Glob pattern(s) to select modules (space- or comma-separated; e.g. \"aws_s3*\" or \"aws_ec2*,data.aws_ami\")")
+	cmd.Flags().BoolVar(&f.all, "all", false, "Select every module in the catalog (equivalent to --filter \"*\")")
 	cmd.Flags().StringVar(&f.outputDir, "output-dir", "", "Parent directory under which one folder per module is written")
 	cmd.Flags().BoolVar(&f.dryRun, "dry-run", false, "Print planned folders/files (paths + sha256) without writing")
 	cmd.Flags().BoolVar(&f.force, "force", false, "Overwrite generated files in pre-existing module folders")
@@ -121,6 +143,39 @@ func splitModules(raw string) []string {
 		}
 	}
 	return out
+}
+
+// filterModules returns the kind-qualified names (e.g. "resource.aws_vpc",
+// "data.aws_ami") for every catalog entry whose bare name matches at least
+// one of the supplied glob patterns. Patterns follow path.Match rules:
+// "*" matches any sequence of characters (including "_"), "?" matches
+// exactly one, and "[…]" matches a character class. Results are sorted
+// and deduplicated. Patterns that match nothing are silently skipped;
+// callers decide whether an empty result is an error.
+func filterModules(s *catalog.Schema, patterns []string) ([]string, error) {
+	if len(patterns) == 0 || s == nil {
+		return nil, nil
+	}
+	seen := make(map[string]struct{}, len(s.Modules))
+	for i := range s.Modules {
+		m := &s.Modules[i]
+		for _, pat := range patterns {
+			ok, err := path.Match(pat, m.Name)
+			if err != nil {
+				return nil, fmt.Errorf("invalid filter pattern %q: %w", pat, err)
+			}
+			if ok {
+				seen[string(m.Type)+"."+m.Name] = struct{}{}
+				break
+			}
+		}
+	}
+	out := make([]string, 0, len(seen))
+	for k := range seen {
+		out = append(out, k)
+	}
+	sort.Strings(out)
+	return out, nil
 }
 
 func mapPlanError(err error) error {

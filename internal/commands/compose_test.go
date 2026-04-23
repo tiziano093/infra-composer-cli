@@ -154,3 +154,94 @@ func TestCompose_UnknownModule(t *testing.T) {
 	require.True(t, errors.As(err, &ce))
 	assert.Equal(t, clierr.ExitModuleNotFound, ce.Code)
 }
+
+// ── --filter and --all ────────────────────────────────────────────────────────
+
+func TestFilterModules_GlobMatchesBothKinds(t *testing.T) {
+	t.Parallel()
+	s := schemaFromJSON(t, composeSchemaJSON)
+	got, err := filterModules(s, []string{"aws_*"})
+	require.NoError(t, err)
+	// schema has: aws_vpc (resource), aws_subnet (resource), aws_caller (data)
+	assert.Equal(t, []string{"data.aws_caller", "resource.aws_subnet", "resource.aws_vpc"}, got)
+}
+
+func TestFilterModules_ExactName(t *testing.T) {
+	t.Parallel()
+	s := schemaFromJSON(t, composeSchemaJSON)
+	got, err := filterModules(s, []string{"aws_vpc"})
+	require.NoError(t, err)
+	assert.Equal(t, []string{"resource.aws_vpc"}, got)
+}
+
+func TestFilterModules_MultiplePatterns(t *testing.T) {
+	t.Parallel()
+	s := schemaFromJSON(t, composeSchemaJSON)
+	got, err := filterModules(s, []string{"aws_vpc", "aws_subnet"})
+	require.NoError(t, err)
+	assert.Equal(t, []string{"resource.aws_subnet", "resource.aws_vpc"}, got)
+}
+
+func TestFilterModules_NoMatch(t *testing.T) {
+	t.Parallel()
+	s := schemaFromJSON(t, composeSchemaJSON)
+	got, err := filterModules(s, []string{"gcp_*"})
+	require.NoError(t, err)
+	assert.Empty(t, got)
+}
+
+func TestFilterModules_InvalidPattern(t *testing.T) {
+	t.Parallel()
+	s := schemaFromJSON(t, composeSchemaJSON)
+	_, err := filterModules(s, []string{"aws_[invalid"})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid filter pattern")
+}
+
+func TestFilterModules_StarMatchesAll(t *testing.T) {
+	t.Parallel()
+	s := schemaFromJSON(t, composeSchemaJSON)
+	got, err := filterModules(s, []string{"*"})
+	require.NoError(t, err)
+	assert.Len(t, got, 3)
+}
+
+func TestCompose_FilterFlag(t *testing.T) {
+	t.Parallel()
+	out, err := runCompose(t, composeSchemaJSON,
+		"--filter", "aws_vpc,aws_subnet", "--dry-run", "--format", "json")
+	require.NoError(t, err)
+	var summary composeJSONSummary
+	require.NoError(t, json.Unmarshal(out.Bytes(), &summary))
+	require.Len(t, summary.Modules, 2)
+	names := []string{summary.Modules[0].Module, summary.Modules[1].Module}
+	assert.ElementsMatch(t, []string{"aws_vpc", "aws_subnet"}, names)
+}
+
+func TestCompose_AllFlag(t *testing.T) {
+	t.Parallel()
+	out, err := runCompose(t, composeSchemaJSON, "--all", "--dry-run", "--format", "json")
+	require.NoError(t, err)
+	var summary composeJSONSummary
+	require.NoError(t, json.Unmarshal(out.Bytes(), &summary))
+	assert.Len(t, summary.Modules, 3)
+}
+
+func TestCompose_FilterNoMatch(t *testing.T) {
+	t.Parallel()
+	_, err := runCompose(t, composeSchemaJSON, "--filter", "gcp_*", "--dry-run")
+	require.Error(t, err)
+	var ce *clierr.CLIError
+	require.True(t, errors.As(err, &ce))
+	assert.Equal(t, clierr.ExitInvalidArgs, ce.Code)
+}
+
+func TestCompose_FilterAndModulesMerge(t *testing.T) {
+	t.Parallel()
+	out, err := runCompose(t, composeSchemaJSON,
+		"--modules", "data.aws_caller", "--filter", "aws_vpc", "--dry-run", "--format", "json")
+	require.NoError(t, err)
+	var summary composeJSONSummary
+	require.NoError(t, json.Unmarshal(out.Bytes(), &summary))
+	assert.Len(t, summary.Modules, 2)
+}
