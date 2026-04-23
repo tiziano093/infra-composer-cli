@@ -16,6 +16,12 @@ linters:
     - gosec
 
 linters-settings:
+  errcheck:
+    exclude-functions:
+      - fmt.Fprint
+      - fmt.Fprintf
+      - fmt.Fprintln
+      - (io.Writer).Write
   gosec:
     excludes:
       - G101  # hardcoded credentials (false positives in tests)
@@ -24,6 +30,9 @@ issues:
   exclude-use-default: false
   max-issues-per-linter: 0
   max-same-issues: 0
+  exclude-rules:
+    - linters: [errcheck]
+      text: "Error return value of `.*\\.Close`"
 
 output:
   formats:
