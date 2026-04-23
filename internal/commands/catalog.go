@@ -360,9 +360,14 @@ func mapBuildError(provider, registryDir string, err error) error {
 	}
 	var ve *catalog.ValidationError
 	if errors.As(err, &ve) {
+		hints := make([]string, 0, len(ve.Issues)+1)
+		for _, iss := range ve.Issues {
+			hints = append(hints, iss.String())
+		}
+		hints = append(hints, "run `infra-composer catalog validate --schema <path>` to inspect the saved catalog")
 		return cliError(exitValidationFailed,
 			fmt.Sprintf("registry produced invalid catalog for %s (%d issue(s))", provider, len(ve.Issues)),
-			"verify the provider fixture matches the catalog schema")
+			hints...)
 	}
 	return cliError(clierr.ExitGeneric,
 		fmt.Sprintf("failed to build catalog for %s: %v", provider, err))
