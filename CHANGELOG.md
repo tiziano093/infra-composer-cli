@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.0](https://github.com/tiziano093/infra-composer-cli/compare/v2.0.0...v2.1.0) (2026-04-24)
+
+
+### Features
+
+* emit dynamic blocks for nested Terraform attributes ([84d2cb2](https://github.com/tiziano093/infra-composer-cli/commit/84d2cb206037d5b2d5fe033854a8edb12ddb460c))
+* emit dynamic blocks for nested Terraform attributes ([2e615b5](https://github.com/tiziano093/infra-composer-cli/commit/2e615b5a8424a54e2fb21bdb2505bd76ffb0bdd9))
+
 ## [2.0.0](https://github.com/tiziano093/infra-composer-cli/compare/v1.0.0...v2.0.0) (2026-04-24)
 
 
