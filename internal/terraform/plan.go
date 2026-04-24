@@ -134,6 +134,16 @@ func buildModule(m *catalog.ModuleEntry, providerLocal, providerSource, versionP
 		ProviderSource:            providerSource,
 		ProviderVersionConstraint: versionPin,
 	}
+
+	// Pre-build lookup from parent block name to child attrs. Populated
+	// only for new-format catalogs that carry catalog.Variable.Attrs.
+	attrsByParent := make(map[string][]catalog.VariableAttr, len(m.Variables))
+	for _, v := range m.Variables {
+		if len(v.Attrs) > 0 {
+			attrsByParent[v.Name] = v.Attrs
+		}
+	}
+
 	nestedCollapsed := 0
 	skippedChildren := 0
 	for _, v := range m.Variables {
@@ -156,6 +166,12 @@ func buildModule(m *catalog.ModuleEntry, providerLocal, providerSource, versionP
 		if IsNestedBlockType(v.Type) {
 			mv.Nested = true
 			nestedCollapsed++
+			if catalogAttrs, ok := attrsByParent[v.Name]; ok {
+				mv.Attrs = make([]NestedAttr, len(catalogAttrs))
+				for i, a := range catalogAttrs {
+					mv.Attrs[i] = NestedAttr{Name: a.Name, Type: a.Type, Required: a.Required}
+				}
+			}
 		}
 		gm.Variables = append(gm.Variables, mv)
 	}

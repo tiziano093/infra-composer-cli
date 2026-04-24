@@ -64,6 +64,15 @@ type ResourceSchema struct {
 	Outputs     []OutputSpec
 }
 
+// NestedAttr describes one child attribute inside a nested block.
+// Carried on InputSpec.Attrs so the generator can emit concrete HCL
+// instead of a TODO comment.
+type NestedAttr struct {
+	Name     string
+	Type     string
+	Required bool
+}
+
 // InputSpec mirrors a Terraform provider input attribute.
 type InputSpec struct {
 	Name        string
@@ -72,6 +81,9 @@ type InputSpec struct {
 	Default     any
 	Required    bool
 	Sensitive   bool
+	// Attrs holds the child attributes of a nested block. Nil for flat
+	// attributes; populated by collectInputs for NestedBlocks.
+	Attrs []NestedAttr
 }
 
 // OutputSpec mirrors a Terraform provider output attribute.
