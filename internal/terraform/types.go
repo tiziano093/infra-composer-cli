@@ -16,6 +16,15 @@ import (
 	"github.com/tiziano093/infra-composer-cli/internal/catalog"
 )
 
+// NestedAttr is one child attribute of a nested block variable as
+// resolved by buildModule. Used by renderMain to emit typed content {}
+// bodies inside dynamic or static nested blocks.
+type NestedAttr struct {
+	Name     string
+	Type     string
+	Required bool
+}
+
 // ModuleVariable is one input variable of a generated module folder.
 // Each instance maps 1:1 to a variable block in the produced
 // variables.tf and to an attribute assignment inside the resource block
@@ -36,11 +45,14 @@ type ModuleVariable struct {
 	Required bool
 	// Sensitive marks the variable as containing secret material.
 	Sensitive bool
-	// Nested signals a nested-block attribute that the generator
-	// cannot fully model in v1 (Cut B). The variable is still rendered
-	// (with type "any" and default null) and the resource block emits
-	// a TODO so the user can complete the nested block by hand.
+	// Nested signals a nested-block variable. When Attrs is non-nil the
+	// generator emits a typed dynamic (or static) block. When Attrs is
+	// nil (old catalog format), the generator falls back to a TODO
+	// comment for backward compatibility.
 	Nested bool
+	// Attrs holds the resolved child attributes for a nested block.
+	// Nil for flat scalars and for nested blocks from old catalogs.
+	Attrs []NestedAttr
 	// References carries the catalog-declared cross-module wiring for
 	// this variable. When root-stack rendering is enabled, each
 	// reference whose target module is also part of the plan is turned

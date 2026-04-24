@@ -99,6 +99,16 @@ func TestTranslateSchema_NestedBlocks(t *testing.T) {
 	if _, ok := ins["ingress.port"]; ok {
 		t.Error("nested attribute should not appear flattened (current contract)")
 	}
+
+	// Child attrs must be collected on the parent InputSpec.
+	ingress := ins["ingress"]
+	if len(ingress.Attrs) != 1 || ingress.Attrs[0].Name != "port" || ingress.Attrs[0].Type != "number" || !ingress.Attrs[0].Required {
+		t.Errorf("ingress.Attrs: %+v", ingress.Attrs)
+	}
+	settings := ins["settings"]
+	if len(settings.Attrs) != 1 || settings.Attrs[0].Name != "enabled" || settings.Attrs[0].Type != "bool" {
+		t.Errorf("settings.Attrs: %+v", settings.Attrs)
+	}
 }
 
 func TestTranslateSchema_OutputsCapturesComputedNested(t *testing.T) {

@@ -68,12 +68,24 @@ func collectInputs(block *tfjson.SchemaBlock, prefix string) []InputSpec {
 		if nested == nil || nested.Block == nil {
 			continue
 		}
-		out = append(out, InputSpec{
+		spec := InputSpec{
 			Name:        joinPath(prefix, name),
 			Type:        nestedBlockType(nested),
 			Description: nested.Block.Description,
 			Required:    nested.MinItems > 0,
-		})
+		}
+		for attrName, attr := range nested.Block.Attributes {
+			if attr == nil || isComputedOnly(attr) {
+				continue
+			}
+			spec.Attrs = append(spec.Attrs, NestedAttr{
+				Name:     attrName,
+				Type:     ctyTypeString(attr.AttributeType),
+				Required: attr.Required,
+			})
+		}
+		sort.Slice(spec.Attrs, func(i, j int) bool { return spec.Attrs[i].Name < spec.Attrs[j].Name })
+		out = append(out, spec)
 	}
 	return out
 }

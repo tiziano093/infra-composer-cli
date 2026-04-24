@@ -218,6 +218,71 @@ func TestGenerate_NestedBlockRendersTODO(t *testing.T) {
 	assert.Regexp(t, `type\s+= any`, vars)
 }
 
+func dynamicBlockSchema() *catalog.Schema {
+	return &catalog.Schema{
+		SchemaVersion: catalog.SchemaVersion, Provider: "hashicorp/azurerm", ProviderVersion: "4.0.0",
+		Modules: []catalog.ModuleEntry{
+			{
+				Name: "azurerm_test_resource", Type: catalog.ModuleTypeResource,
+				Variables: []catalog.Variable{
+					{Name: "name", Type: "string", Required: true},
+					// list(any) nested block with known child attrs → dynamic block
+					{
+						Name: "replica_set", Type: "list(any)",
+						Attrs: []catalog.VariableAttr{
+							{Name: "subnet_id", Type: "string", Required: true},
+						},
+					},
+					// required "any" nested block → static block
+					{
+						Name: "timeouts", Type: "any", Required: true,
+						Attrs: []catalog.VariableAttr{
+							{Name: "create", Type: "string"},
+						},
+					},
+					// optional "any" nested block → dynamic block with single-item guard
+					{
+						Name: "storage", Type: "any", Required: false,
+						Attrs: []catalog.VariableAttr{
+							{Name: "size_gb", Type: "number"},
+						},
+					},
+				},
+				Outputs: []catalog.Output{{Name: "id"}},
+			},
+		},
+	}
+}
+
+func TestGenerate_DynamicBlockEmitted(t *testing.T) {
+	t.Parallel()
+	plan, err := Plan(dynamicBlockSchema(), PlanOptions{Modules: []string{"azurerm_test_resource"}})
+	require.NoError(t, err)
+	files, err := Generate(plan)
+	require.NoError(t, err)
+	by := byName(files)
+
+	main := by["azurerm_test_resource/main.tf"]
+
+	// list(any) with attrs → dynamic block
+	assert.Contains(t, main, `dynamic "replica_set"`)
+	assert.Contains(t, main, `for_each = var.replica_set != null ? var.replica_set : []`)
+	assert.Contains(t, main, `subnet_id = replica_set.value.subnet_id`)
+
+	// required "any" with attrs → static block (no dynamic wrapper)
+	assert.Contains(t, main, `timeouts {`)
+	assert.Contains(t, main, `create = var.timeouts.create`)
+	assert.NotContains(t, main, `dynamic "timeouts"`)
+
+	// optional "any" with attrs → dynamic with [var.x] guard
+	assert.Contains(t, main, `dynamic "storage"`)
+	assert.Contains(t, main, `for_each = var.storage != null ? [var.storage] : []`)
+	assert.Contains(t, main, `size_gb = storage.value.size_gb`)
+
+	// no TODO comments when Attrs are populated
+	assert.NotContains(t, main, `TODO`)
+}
+
 func byName(files []GeneratedFile) map[string]string {
 	m := make(map[string]string, len(files))
 	for _, f := range files {

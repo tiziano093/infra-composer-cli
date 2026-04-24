@@ -129,8 +129,9 @@ func renderVariables(m *GeneratedModule) ([]byte, error) {
 
 // renderMain emits the single `resource|data "<type>" "this" {}` block
 // at the heart of the generated module. Each non-nested variable maps
-// to a `<name> = var.<name>` assignment; nested-block variables get a
-// commented TODO instead so users complete the structural HCL by hand.
+// to a `<name> = var.<name>` assignment. Nested-block variables with
+// known child attrs emit a dynamic (or static) block; those without
+// (old catalog format) fall back to a TODO comment.
 func renderMain(m *GeneratedModule) ([]byte, error) {
 	f := hclwrite.NewEmptyFile()
 	root := f.Body()
@@ -154,11 +155,58 @@ func renderMain(m *GeneratedModule) ([]byte, error) {
 		body.SetAttributeRaw(v.Name, traversalTokens("var", v.Name))
 	}
 	for _, v := range nested {
-		body.AppendUnstructuredTokens(hclwrite.Tokens{
-			{Type: hclsyntax.TokenComment, Bytes: []byte(fmt.Sprintf("# TODO: configure nested block %q manually using var.%s.\n", v.Name, v.Name))},
-		})
+		if len(v.Attrs) > 0 {
+			emitNestedBlock(body, v)
+		} else {
+			body.AppendUnstructuredTokens(hclwrite.Tokens{
+				{Type: hclsyntax.TokenComment, Bytes: []byte(fmt.Sprintf("# TODO: configure nested block %q manually using var.%s.\n", v.Name, v.Name))},
+			})
+		}
 	}
-	return f.Bytes(), nil
+	return hclwrite.Format(f.Bytes()), nil
+}
+
+// inferForEach returns the HCL for_each expression for a dynamic nested
+// block based on the variable's type string. Returns "" for required
+// single blocks that should be emitted as static (non-dynamic) blocks.
+func inferForEach(mv ModuleVariable) string {
+	switch mv.Type {
+	case "list(any)", "set(any)":
+		return fmt.Sprintf("var.%s != null ? var.%s : []", mv.Name, mv.Name)
+	case "map(any)":
+		return fmt.Sprintf("var.%s != null ? var.%s : {}", mv.Name, mv.Name)
+	default: // "any" = single/group nesting
+		if mv.Required {
+			return "" // static block
+		}
+		return fmt.Sprintf("var.%s != null ? [var.%s] : []", mv.Name, mv.Name)
+	}
+}
+
+// emitNestedBlock appends a dynamic or static nested block to body.
+// Dynamic blocks use `block.value.attr` references; static (required
+// single) blocks use `var.block.attr` references. hclwrite.Format
+// is applied to the renderMain output so indentation is normalised.
+func emitNestedBlock(body *hclwrite.Body, mv ModuleVariable) {
+	forEach := inferForEach(mv)
+	var sb strings.Builder
+	if forEach == "" {
+		// Required single-instance block: static, no dynamic wrapper.
+		fmt.Fprintf(&sb, "%s {\n", mv.Name)
+		for _, a := range mv.Attrs {
+			fmt.Fprintf(&sb, "  %s = var.%s.%s\n", a.Name, mv.Name, a.Name)
+		}
+		sb.WriteString("}\n")
+	} else {
+		fmt.Fprintf(&sb, "dynamic %q {\n  for_each = %s\n  content {\n", mv.Name, forEach)
+		for _, a := range mv.Attrs {
+			fmt.Fprintf(&sb, "    %s = %s.value.%s\n", a.Name, mv.Name, a.Name)
+		}
+		sb.WriteString("  }\n}\n")
+	}
+	body.AppendUnstructuredTokens(hclwrite.Tokens{
+		{Type: hclsyntax.TokenIdent, Bytes: []byte(sb.String())},
+	})
 }
 
 // renderOutputs emits one `output "<name>" {}` block per ModuleOutput,
@@ -253,8 +301,7 @@ func renderReadme(m *GeneratedModule) ([]byte, error) {
 
 	buf.WriteString("## v1 limitations\n\n")
 	buf.WriteString("- Single static block (no `for_each`/`count`).\n")
-	buf.WriteString("- Nested blocks are surfaced as `any`-typed variables; their inner HCL must be completed manually.\n")
-	buf.WriteString("- No `dynamic` block emission.\n")
+	buf.WriteString("- Nested blocks from catalogs built before v2.1 are surfaced as `any`-typed variables with a TODO comment; rebuild the catalog to get typed `dynamic` blocks.\n")
 
 	if len(m.Warnings) > 0 {
 		buf.WriteString("\n## Generation warnings\n\n")

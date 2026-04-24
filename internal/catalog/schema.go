@@ -83,6 +83,18 @@ type ModuleEntry struct {
 	Outputs []Output `json:"outputs,omitempty"`
 }
 
+// VariableAttr describes one child attribute of a nested block variable.
+// Populated during catalog build for blocks whose inner schema is known,
+// and consumed by the generator to emit typed content {} bodies.
+type VariableAttr struct {
+	// Name is the Terraform attribute identifier inside the block.
+	Name string `json:"name"`
+	// Type is the HCL type literal (e.g. "string", "number").
+	Type string `json:"type"`
+	// Required mirrors the provider attribute Required flag.
+	Required bool `json:"required"`
+}
+
 // Variable describes a Terraform input variable.
 type Variable struct {
 	// Name is the variable identifier. Required, unique per module.
@@ -111,6 +123,10 @@ type Variable struct {
 	// composed stack) from the listed module outputs in the same catalog.
 	// Empty means "no inter-module dependency".
 	References []VariableReference `json:"references,omitempty"`
+	// Attrs holds the child attributes of a nested block variable.
+	// Nil for flat scalar variables. omitempty ensures old catalogs that
+	// lack this field remain valid on round-trip.
+	Attrs []VariableAttr `json:"attrs,omitempty"`
 }
 
 // VariableReference points to a single output of another module in the

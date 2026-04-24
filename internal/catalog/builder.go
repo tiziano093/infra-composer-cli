@@ -136,7 +136,7 @@ func normalizeModule(rs *registry.ResourceSchema) ModuleEntry {
 	if len(rs.Inputs) > 0 {
 		m.Variables = make([]Variable, len(rs.Inputs))
 		for i, in := range rs.Inputs {
-			m.Variables[i] = Variable{
+			v := Variable{
 				Name:        in.Name,
 				Type:        in.Type,
 				Description: in.Description,
@@ -144,6 +144,13 @@ func normalizeModule(rs *registry.ResourceSchema) ModuleEntry {
 				Required:    in.Required,
 				Sensitive:   in.Sensitive,
 			}
+			if len(in.Attrs) > 0 {
+				v.Attrs = make([]VariableAttr, len(in.Attrs))
+				for j, a := range in.Attrs {
+					v.Attrs[j] = VariableAttr{Name: a.Name, Type: a.Type, Required: a.Required}
+				}
+			}
+			m.Variables[i] = v
 		}
 	}
 	if len(rs.Outputs) > 0 {
