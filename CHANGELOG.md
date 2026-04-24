@@ -5,6 +5,32 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.0](https://github.com/tiziano093/infra-composer-cli/compare/v1.0.0...v2.0.0) (2026-04-24)
+
+
+### ⚠ BREAKING CHANGES
+
+* **compose:** --root-stack flag removed from `compose`; no more main.tf/variables.tf/outputs.tf/providers.tf/versions.tf/locals.tf emitted at the root of --output-dir. Consumers build their own environment layer.
+
+### Features
+
+* add --filter/--all to compose, fix catalog validation, improve interactive UX ([1df0b13](https://github.com/tiziano093/infra-composer-cli/commit/1df0b13f43559440e5d8ea9879d18693dd1f6868))
+* add Homebrew formula for v1.0.0 ([59ba979](https://github.com/tiziano093/infra-composer-cli/commit/59ba979245c2c31d7d1d7cafb4d1562000157d4e))
+* **compose:** drop --root-stack, emit modules.json ([3e9a028](https://github.com/tiziano093/infra-composer-cli/commit/3e9a028c6c22cf323356dd983db48be27ca4cea1))
+
+
+### Bug Fixes
+
+* exclude fmt.Fprintf and defer Close from errcheck ([76e28af](https://github.com/tiziano093/infra-composer-cli/commit/76e28afd81fdc2053c8d66ba2a54e37bb223e4c5))
+* gofmt formatting on registry and git test files ([7370d69](https://github.com/tiziano093/infra-composer-cli/commit/7370d6933146b5f1cc105096a3358940a0e8d749))
+* remove unused errBinaryMissing, use type conversions in fake.go, filepath.Clean in catalog.go ([086a33d](https://github.com/tiziano093/infra-composer-cli/commit/086a33d1ab504a96850606548d20020aad6b4498))
+* suppress gosec G304/G301/G306 false positives for CLI file I/O ([8e8cca5](https://github.com/tiziano093/infra-composer-cli/commit/8e8cca55e436fe06b404690e13f57fb6fcba67a6))
+
+
+### Miscellaneous
+
+* trigger release 2.0.0 ([7520a88](https://github.com/tiziano093/infra-composer-cli/commit/7520a88cd06f87358ffb9abf3fc7dfe6c14393cf))
+
 ## [Unreleased]
 
 ### Removed
