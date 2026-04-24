@@ -25,5 +25,8 @@
       "path": "npm/package.json",
       "jsonpath": "$.version"
     }
-  ]
+  ],
+  "packages": {
+    ".": {}
+  }
 }
