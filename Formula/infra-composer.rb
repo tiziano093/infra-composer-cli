@@ -3,26 +3,26 @@
 class InfraComposer < Formula
   desc "Portable CLI for composing Terraform stacks from provider catalogs."
   homepage "https://github.com/tiziano093/infra-composer-cli"
-  version "1.0.0"
+  version "2.0.0"
   license "Apache-2.0"
 
   on_macos do
     if Hardware::CPU.intel?
-      url "https://github.com/tiziano093/infra-composer-cli/releases/download/v1.0.0/infra-composer_1.0.0_darwin_amd64.tar.gz"
-      sha256 "25a74deb24ac4a857c4a93c441e57497e24483c81ac26c8c5950cbcced83080d"
+      url "https://github.com/tiziano093/infra-composer-cli/releases/download/v2.0.0/infra-composer_2.0.0_darwin_amd64.tar.gz"
+      sha256 "e1a04a79e92c77a067076dc3fa22297ebad89b76c00c6cbf7c9a829adfe81944"
     else
-      url "https://github.com/tiziano093/infra-composer-cli/releases/download/v1.0.0/infra-composer_1.0.0_darwin_arm64.tar.gz"
-      sha256 "5f6c8bfefe610e8ff39b151034c21ec912672a1fdf15e053f314256230a63b09"
+      url "https://github.com/tiziano093/infra-composer-cli/releases/download/v2.0.0/infra-composer_2.0.0_darwin_arm64.tar.gz"
+      sha256 "771204b267f3e25f73c264ac003e5b10de8be127de92f44158e89669c251a27f"
     end
   end
 
   on_linux do
     if Hardware::CPU.intel?
-      url "https://github.com/tiziano093/infra-composer-cli/releases/download/v1.0.0/infra-composer_1.0.0_linux_amd64.tar.gz"
-      sha256 "48688f9456bf301fc485b405ee5493826b473348d579ad4aa1db5a7fe9b382cc"
+      url "https://github.com/tiziano093/infra-composer-cli/releases/download/v2.0.0/infra-composer_2.0.0_linux_amd64.tar.gz"
+      sha256 "10e5722e6f88b4b065e55f8b462a6f3e04582491776d2b076fdffcaa5db9ee15"
     else
-      url "https://github.com/tiziano093/infra-composer-cli/releases/download/v1.0.0/infra-composer_1.0.0_linux_arm64.tar.gz"
-      sha256 "fe4fe742098a4eab77f794e626a93acd4d46a563ba0d3abf416cef0a57e1530e"
+      url "https://github.com/tiziano093/infra-composer-cli/releases/download/v2.0.0/infra-composer_2.0.0_linux_arm64.tar.gz"
+      sha256 "eef73187a253a66db6e899a1464a02d881dca69b5f40befcf06710fe1857b062"
     end
   end
 
