@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/tiziano093/infra-composer-cli/internal/clierr"
+	"github.com/tiziano093/infra-composer-cli/v2/internal/clierr"
 )
 
 const depSchemaJSON = `{

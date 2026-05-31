@@ -18,8 +18,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/tiziano093/infra-composer-cli/pkg/catalog"
-	"github.com/tiziano093/infra-composer-cli/pkg/catalog/registry"
+	"github.com/tiziano093/infra-composer-cli/v2/pkg/catalog"
+	"github.com/tiziano093/infra-composer-cli/v2/pkg/catalog/registry"
 )
 
 func requireE2E(t *testing.T) {

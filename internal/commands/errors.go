@@ -1,7 +1,7 @@
 package commands
 
 import (
-	"github.com/tiziano093/infra-composer-cli/internal/clierr"
+	"github.com/tiziano093/infra-composer-cli/v2/internal/clierr"
 )
 
 // Local aliases for the most-used clierr identifiers so command files

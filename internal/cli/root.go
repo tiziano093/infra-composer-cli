@@ -9,9 +9,9 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/tiziano093/infra-composer-cli/internal/commands"
-	"github.com/tiziano093/infra-composer-cli/internal/config"
-	"github.com/tiziano093/infra-composer-cli/internal/output"
+	"github.com/tiziano093/infra-composer-cli/v2/internal/commands"
+	"github.com/tiziano093/infra-composer-cli/v2/internal/config"
+	"github.com/tiziano093/infra-composer-cli/v2/internal/output"
 )
 
 // BuildInfo carries values injected by the linker at build time.
