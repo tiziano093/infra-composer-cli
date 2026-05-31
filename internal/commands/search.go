@@ -11,7 +11,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/tiziano093/infra-composer-cli/internal/catalog"
+	"github.com/tiziano093/infra-composer-cli/pkg/catalog"
 )
 
 // searchFlags collects the local flags accepted by the `search` command.

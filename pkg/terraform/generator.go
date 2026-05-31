@@ -12,7 +12,7 @@ import (
 	"github.com/hashicorp/hcl/v2/hclwrite"
 	"github.com/zclconf/go-cty/cty"
 
-	"github.com/tiziano093/infra-composer-cli/internal/catalog"
+	"github.com/tiziano093/infra-composer-cli/pkg/catalog"
 )
 
 // Generate renders the per-module .tf files for every GeneratedModule

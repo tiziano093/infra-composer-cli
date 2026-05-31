@@ -25,8 +25,8 @@ Infrastructure Layer (git, output formatting, logging)
 
 ### 5 Core Domain Packages
 
-- **`internal/catalog/`** — Schema parsing, module search, dependency resolution (discover → crawl → normalize → export)
-- **`internal/terraform/`** — HCL generation from modules, support files (CI/CD, tflint, terraform-docs)
+- **`pkg/catalog/`** — Schema parsing, module search, dependency resolution (discover → crawl → normalize → export)
+- **`pkg/terraform/`** — HCL generation from modules, support files (CI/CD, tflint, terraform-docs)
 - **`internal/config/`** — Configuration hierarchy (defaults → file → env vars → flags)
 - **`internal/git/`** — Git remote URL extraction, semver tag fetching
 - **`internal/output/`** — JSON, YAML, table formatting + structured logging
@@ -49,7 +49,7 @@ make build                          # Build binary: bin/infra-composer
 # Test
 make test                           # Run all tests with coverage
 go test ./... -v                    # Run all tests verbose
-go test -run TestSearchModules ./internal/catalog/...  # Single test
+go test -run TestSearchModules ./pkg/catalog/...  # Single test
 go test ./test/integration/...      # Integration tests only
 
 # Lint
@@ -79,7 +79,7 @@ make clean                          # Remove build artifacts
 
 ### Error Handling
 
-1. Define custom error types per domain package (e.g., `ValidationError` in `internal/catalog/`)
+1. Define custom error types per domain package (e.g., `ValidationError` in `pkg/catalog/`)
 2. Wrap errors with context: `fmt.Errorf("operation: %w", err)`
 3. Commands convert domain errors to CLI errors with suggestions
 4. Exit codes: 0=success, 1=generic, 2=invalid args, 3=file not found, 4=validation, 5=module not found, etc.

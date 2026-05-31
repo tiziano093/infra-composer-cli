@@ -6,6 +6,10 @@ import (
 	"strings"
 )
 
+// ErrUnknownModule is returned when a requested module name is not found
+// in the catalog schema.
+var ErrUnknownModule = errors.New("catalog: unknown module")
+
 // ParseError wraps a low-level decode failure (malformed JSON, unexpected
 // EOF, etc.) with the originating source path when known.
 type ParseError struct {

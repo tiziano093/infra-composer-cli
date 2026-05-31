@@ -14,9 +14,9 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/tiziano093/infra-composer-cli/internal/catalog"
-	"github.com/tiziano093/infra-composer-cli/internal/catalog/registry"
 	"github.com/tiziano093/infra-composer-cli/internal/clierr"
+	"github.com/tiziano093/infra-composer-cli/pkg/catalog"
+	"github.com/tiziano093/infra-composer-cli/pkg/catalog/registry"
 )
 
 // NewCatalogCommand returns the parent `catalog` command. Subcommands

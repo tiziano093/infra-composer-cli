@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/tiziano093/infra-composer-cli/internal/catalog/registry"
+	"github.com/tiziano093/infra-composer-cli/pkg/catalog/registry"
 )
 
 // BuildOptions parameterise Builder.Build. Provider is the only required

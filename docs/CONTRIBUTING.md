@@ -270,7 +270,7 @@ Add Homebrew installation method and Windows WSL notes.
 
 ### Test File Locations
 ```
-Feature in internal/catalog/searcher.go
+Feature in pkg/catalog/searcher.go
   ├─ Unit test: test/unit/catalog_searcher_test.go
   └─ Integration test: test/integration/search_test.go
 
@@ -285,7 +285,7 @@ Feature in internal/commands/compose.go
 make test
 
 # Specific package
-go test ./internal/catalog/... -v
+go test ./pkg/catalog/... -v
 
 # Specific test
 go test -run TestSchemaValidate ./test/unit/...

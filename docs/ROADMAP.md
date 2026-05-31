@@ -116,11 +116,11 @@ make test
 
 | Task | Owner | Effort | Status |
 |------|-------|--------|--------|
-| Schema types + parsing | Dev1 | 2d | ✅ Done (`internal/catalog` schema/parse/validate, `pkg/catalog` re-exports, fixtures) |
-| Catalog builder pipeline | Dev1 | 3d | ✅ Done (`internal/catalog/builder.go`, discover→list→fetch→normalize→validate, deterministic ordering) |
-| Terraform Registry API integration (mock) | Dev2 | 2d | ✅ Done (`internal/catalog/registry`, `Client` interface + `FakeClient` backed by JSON fixtures) |
-| Catalog exporter (to schema.json) | Dev2 | 1.5d | ✅ Done (`internal/catalog/exporter.go`, atomic tmp+rename, Path/Dir options) |
-| Module search + filtering | Dev1 | 2d | ✅ Done (`internal/catalog/search.go`, AND logic, group/type filters, weighted scoring, fuzzy subsequence) |
+| Schema types + parsing | Dev1 | 2d | ✅ Done (`pkg/catalog` schema/parse/validate, `pkg/catalog` re-exports, fixtures) |
+| Catalog builder pipeline | Dev1 | 3d | ✅ Done (`pkg/catalog/builder.go`, discover→list→fetch→normalize→validate, deterministic ordering) |
+| Terraform Registry API integration (mock) | Dev2 | 2d | ✅ Done (`pkg/catalog/registry`, `Client` interface + `FakeClient` backed by JSON fixtures) |
+| Catalog exporter (to schema.json) | Dev2 | 1.5d | ✅ Done (`pkg/catalog/exporter.go`, atomic tmp+rename, Path/Dir options) |
+| Module search + filtering | Dev1 | 2d | ✅ Done (`pkg/catalog/search.go`, AND logic, group/type filters, weighted scoring, fuzzy subsequence) |
 | `catalog build` command | Dev1 | 1d | ✅ Done (`internal/commands/catalog.go`, `--provider/--output-dir/--registry-dir`, text+JSON) |
 | `catalog export` command | Dev2 | 0.5d | ✅ Done (`internal/commands/catalog.go`, `[path] --output <file\|dir>`, text+JSON) |
 | `catalog list` command | Dev2 | 1d | ✅ Done (`internal/commands/catalog.go`, table+JSON, `--group` filter) |
@@ -197,7 +197,7 @@ infra-composer catalog list --schema ./catalog/schema.json
 | Terraform file generation (5 core files) | Dev3 | 2d | ✅ Done |
 | Support file generation (CI/CD, tflint, etc.) | Dev3 | 2d | ✅ Done |
 | `compose` command | Dev1 | 1.5d | ✅ Done |
-| Real registry source (`terraform providers schema -json`) | Dev1 | 2d | ✅ Done (`internal/catalog/registry/terraform_exec.go`, schema cache, `--include/--exclude`) |
+| Real registry source (`terraform providers schema -json`) | Dev1 | 2d | ✅ Done (`pkg/catalog/registry/terraform_exec.go`, schema cache, `--include/--exclude`) |
 | `interactive` command (provider/version/resource picker) | Dev2 | 1.5d | ✅ Done (`internal/commands/interactive.go`, survey/v2) |
 | Git integration (remote detection, tags) | Dev2 | 1d | ✅ Done (`internal/git/{remote,tags}.go`) |
 | E2E integration tests | QA | 3d | ✅ Done (gated by `INFRA_COMPOSER_E2E=1`, target hashicorp/random) |

@@ -204,9 +204,9 @@ Fixes #123
 - Integration tests + fixtures
 
 **Key Files:**
-- `internal/catalog/schema.go`
-- `internal/catalog/builder.go`
-- `internal/catalog/searcher.go`
+- `pkg/catalog/schema.go`
+- `pkg/catalog/builder.go`
+- `pkg/catalog/searcher.go`
 - `internal/commands/catalog.go`
 - `internal/commands/search.go`
 - `test/fixtures/schemas/aws-schema.json`
@@ -235,10 +235,10 @@ Fixes #123
 - Generated code includes TODO markers
 
 **Key Files:**
-- `internal/catalog/dependency.go`
-- `internal/terraform/generator.go`
-- `internal/terraform/templates.go`
-- `internal/terraform/support.go`
+- `pkg/catalog/dependency.go`
+- `pkg/terraform/generator.go`
+- `pkg/terraform/templates.go`
+- `pkg/terraform/support.go`
 - `internal/commands/compose.go`
 - `internal/git/remote.go`
 

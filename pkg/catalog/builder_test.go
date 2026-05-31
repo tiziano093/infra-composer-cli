@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/tiziano093/infra-composer-cli/internal/catalog/registry"
+	"github.com/tiziano093/infra-composer-cli/pkg/catalog/registry"
 )
 
 // stubClient is a hand-rolled registry.Client used to drive Builder

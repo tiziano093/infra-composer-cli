@@ -1,9 +1,10 @@
-package catalog
+package graph
 
 import (
-	"errors"
 	"fmt"
 	"sort"
+
+	"github.com/tiziano093/infra-composer-cli/pkg/catalog"
 )
 
 // Edge is a single dependency edge in the catalog graph: module From
@@ -27,10 +28,6 @@ type Graph struct {
 	// (by To, then Variable, then Output).
 	out map[string][]Edge
 }
-
-// ErrUnknownModule is returned by Graph.Resolve when the requested root
-// is not part of the schema the graph was built from.
-var ErrUnknownModule = errors.New("dependency: unknown module")
 
 // CycleError signals that a dependency cycle was detected during
 // traversal. Cycle is the ordered list of module names forming the
@@ -65,7 +62,7 @@ func cycleString(c []string) string {
 // not re-validate references.
 //
 // BuildGraph never fails: if s is nil it returns an empty Graph.
-func BuildGraph(s *Schema) *Graph {
+func BuildGraph(s *catalog.Schema) *Graph {
 	g := &Graph{out: make(map[string][]Edge)}
 	if s == nil {
 		return g
@@ -353,7 +350,7 @@ type DependencyNode struct {
 // pathological structures before calling Resolve in unbounded mode.
 func (g *Graph) Resolve(root string, maxDepth int) (*DependencyNode, error) {
 	if g == nil || !g.Has(root) {
-		return nil, fmt.Errorf("%w: %q", ErrUnknownModule, root)
+		return nil, fmt.Errorf("%w: %q", catalog.ErrUnknownModule, root)
 	}
 	visiting := make(map[string]struct{})
 	stack := []string{}

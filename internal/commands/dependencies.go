@@ -9,8 +9,9 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/tiziano093/infra-composer-cli/internal/catalog"
 	"github.com/tiziano093/infra-composer-cli/internal/clierr"
+	"github.com/tiziano093/infra-composer-cli/pkg/catalog"
+	"github.com/tiziano093/infra-composer-cli/pkg/graph"
 )
 
 type dependenciesFlags struct {
@@ -52,7 +53,7 @@ ExitDependencyFailed if any dependency cycle exists in the catalog.`,
 				return mapCatalogLoadError(schemaPath, err)
 			}
 
-			g := catalog.BuildGraph(s)
+			g := graph.BuildGraph(s)
 			root := args[0]
 			if !g.Has(root) {
 				return cliError(clierr.ExitModuleNotFound,
@@ -71,7 +72,7 @@ ExitDependencyFailed if any dependency cycle exists in the catalog.`,
 
 			tree, err := g.Resolve(root, f.depth)
 			if err != nil {
-				var ce *catalog.CycleError
+				var ce *graph.CycleError
 				if errors.As(err, &ce) {
 					return cliError(clierr.ExitDependencyFailed,
 						fmt.Sprintf("dependency cycle detected: %s", strings.Join(ce.Cycle, " → ")+" → "+ce.Cycle[0]),
@@ -103,7 +104,7 @@ func formatCyclesHints(cycles [][]string) []string {
 	return out
 }
 
-func renderDependencies(out io.Writer, tree *catalog.DependencyNode, format string) error {
+func renderDependencies(out io.Writer, tree *graph.DependencyNode, format string) error {
 	switch strings.ToLower(format) {
 	case "json":
 		return renderDependenciesJSON(out, tree)
@@ -112,13 +113,13 @@ func renderDependencies(out io.Writer, tree *catalog.DependencyNode, format stri
 	}
 }
 
-func renderDependenciesText(out io.Writer, tree *catalog.DependencyNode) error {
+func renderDependenciesText(out io.Writer, tree *graph.DependencyNode) error {
 	fmt.Fprintln(out, tree.Module)
 	writeDepText(out, tree.Children, "")
 	return nil
 }
 
-func writeDepText(out io.Writer, nodes []catalog.DependencyNode, prefix string) {
+func writeDepText(out io.Writer, nodes []graph.DependencyNode, prefix string) {
 	for i, n := range nodes {
 		last := i == len(nodes)-1
 		branch := "├── "
@@ -153,13 +154,13 @@ type dependencyJSONEdge struct {
 	Output   string `json:"output"`
 }
 
-func renderDependenciesJSON(out io.Writer, tree *catalog.DependencyNode) error {
+func renderDependenciesJSON(out io.Writer, tree *graph.DependencyNode) error {
 	enc := json.NewEncoder(out)
 	enc.SetIndent("", "  ")
 	return enc.Encode(toDependencyJSON(tree))
 }
 
-func toDependencyJSON(n *catalog.DependencyNode) dependencyJSONNode {
+func toDependencyJSON(n *graph.DependencyNode) dependencyJSONNode {
 	out := dependencyJSONNode{Module: n.Module, Depth: n.Depth}
 	if n.EdgeFromParent.Variable != "" {
 		out.Edge = &dependencyJSONEdge{

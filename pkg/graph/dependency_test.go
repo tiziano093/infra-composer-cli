@@ -1,4 +1,4 @@
-package catalog
+package graph
 
 import (
 	"errors"
@@ -6,29 +6,30 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/tiziano093/infra-composer-cli/pkg/catalog"
 )
 
-func depSchema(t *testing.T) *Schema {
+func depSchema(t *testing.T) *catalog.Schema {
 	t.Helper()
-	return &Schema{
-		SchemaVersion: SchemaVersion, Provider: "hashicorp/aws", ProviderVersion: "5.42.0",
-		Modules: []ModuleEntry{
-			{Name: "aws_vpc", Type: ModuleTypeResource,
-				Outputs: []Output{{Name: "id"}}},
-			{Name: "aws_subnet", Type: ModuleTypeResource,
-				Variables: []Variable{{
+	return &catalog.Schema{
+		SchemaVersion: catalog.SchemaVersion, Provider: "hashicorp/aws", ProviderVersion: "5.42.0",
+		Modules: []catalog.ModuleEntry{
+			{Name: "aws_vpc", Type: catalog.ModuleTypeResource,
+				Outputs: []catalog.Output{{Name: "id"}}},
+			{Name: "aws_subnet", Type: catalog.ModuleTypeResource,
+				Variables: []catalog.Variable{{
 					Name: "vpc_id", Type: "string", Required: true,
-					References: []VariableReference{{Module: "aws_vpc", Output: "id"}},
+					References: []catalog.VariableReference{{Module: "aws_vpc", Output: "id"}},
 				}},
-				Outputs: []Output{{Name: "id"}}},
-			{Name: "aws_instance", Type: ModuleTypeResource,
-				Variables: []Variable{{
+				Outputs: []catalog.Output{{Name: "id"}}},
+			{Name: "aws_instance", Type: catalog.ModuleTypeResource,
+				Variables: []catalog.Variable{{
 					Name: "subnet_id", Type: "string", Required: true,
-					References: []VariableReference{{Module: "aws_subnet", Output: "id"}},
+					References: []catalog.VariableReference{{Module: "aws_subnet", Output: "id"}},
 				}},
-				Outputs: []Output{{Name: "id"}}},
-			{Name: "aws_caller_identity", Type: ModuleTypeData,
-				Outputs: []Output{{Name: "account_id"}}},
+				Outputs: []catalog.Output{{Name: "id"}}},
+			{Name: "aws_caller_identity", Type: catalog.ModuleTypeData,
+				Outputs: []catalog.Output{{Name: "account_id"}}},
 		},
 	}
 }
@@ -56,13 +57,13 @@ func TestBuildGraph_NilSchema(t *testing.T) {
 
 func TestBuildGraph_SkipsUnknownTargets(t *testing.T) {
 	t.Parallel()
-	s := &Schema{
-		SchemaVersion: SchemaVersion, Provider: "x/y", ProviderVersion: "1.0.0",
-		Modules: []ModuleEntry{{
-			Name: "m", Type: ModuleTypeResource,
-			Variables: []Variable{{
+	s := &catalog.Schema{
+		SchemaVersion: catalog.SchemaVersion, Provider: "x/y", ProviderVersion: "1.0.0",
+		Modules: []catalog.ModuleEntry{{
+			Name: "m", Type: catalog.ModuleTypeResource,
+			Variables: []catalog.Variable{{
 				Name: "v", Type: "string",
-				References: []VariableReference{{Module: "missing", Output: "id"}},
+				References: []catalog.VariableReference{{Module: "missing", Output: "id"}},
 			}},
 		}},
 	}
@@ -98,26 +99,26 @@ func TestGraph_Resolve_UnknownModule(t *testing.T) {
 	g := BuildGraph(depSchema(t))
 	_, err := g.Resolve("nope", 0)
 	require.Error(t, err)
-	assert.True(t, errors.Is(err, ErrUnknownModule))
+	assert.True(t, errors.Is(err, catalog.ErrUnknownModule))
 }
 
 func TestGraph_Cycles(t *testing.T) {
 	t.Parallel()
-	s := &Schema{
-		SchemaVersion: SchemaVersion, Provider: "x/y", ProviderVersion: "1.0.0",
-		Modules: []ModuleEntry{
-			{Name: "a", Type: ModuleTypeResource,
-				Variables: []Variable{{Name: "in", Type: "string",
-					References: []VariableReference{{Module: "b", Output: "out"}}}},
-				Outputs: []Output{{Name: "out"}}},
-			{Name: "b", Type: ModuleTypeResource,
-				Variables: []Variable{{Name: "in", Type: "string",
-					References: []VariableReference{{Module: "c", Output: "out"}}}},
-				Outputs: []Output{{Name: "out"}}},
-			{Name: "c", Type: ModuleTypeResource,
-				Variables: []Variable{{Name: "in", Type: "string",
-					References: []VariableReference{{Module: "a", Output: "out"}}}},
-				Outputs: []Output{{Name: "out"}}},
+	s := &catalog.Schema{
+		SchemaVersion: catalog.SchemaVersion, Provider: "x/y", ProviderVersion: "1.0.0",
+		Modules: []catalog.ModuleEntry{
+			{Name: "a", Type: catalog.ModuleTypeResource,
+				Variables: []catalog.Variable{{Name: "in", Type: "string",
+					References: []catalog.VariableReference{{Module: "b", Output: "out"}}}},
+				Outputs: []catalog.Output{{Name: "out"}}},
+			{Name: "b", Type: catalog.ModuleTypeResource,
+				Variables: []catalog.Variable{{Name: "in", Type: "string",
+					References: []catalog.VariableReference{{Module: "c", Output: "out"}}}},
+				Outputs: []catalog.Output{{Name: "out"}}},
+			{Name: "c", Type: catalog.ModuleTypeResource,
+				Variables: []catalog.Variable{{Name: "in", Type: "string",
+					References: []catalog.VariableReference{{Module: "a", Output: "out"}}}},
+				Outputs: []catalog.Output{{Name: "out"}}},
 		},
 	}
 	g := BuildGraph(s)
