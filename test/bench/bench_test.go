@@ -10,8 +10,8 @@ import (
 	"runtime"
 	"testing"
 
-	"github.com/tiziano093/infra-composer-cli/pkg/catalog"
 	"github.com/tiziano093/infra-composer-cli/internal/cli"
+	"github.com/tiziano093/infra-composer-cli/pkg/catalog"
 	"github.com/tiziano093/infra-composer-cli/pkg/graph"
 	"github.com/tiziano093/infra-composer-cli/pkg/terraform"
 )
