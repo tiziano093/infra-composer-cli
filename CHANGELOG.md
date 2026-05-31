@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.3.0](https://github.com/tiziano093/infra-composer-cli/compare/v2.2.0...v2.3.0) (2026-05-31)
+
+
+### Features
+
+* migrate to Go module v2 path ([#19](https://github.com/tiziano093/infra-composer-cli/issues/19)) ([3e49192](https://github.com/tiziano093/infra-composer-cli/commit/3e49192dd45d7128bc52bc9b43702a9d36dea9da))
+
 ## [2.2.0](https://github.com/tiziano093/infra-composer-cli/compare/v2.1.0...v2.2.0) (2026-05-31)
 
 
