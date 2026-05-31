@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.2.0](https://github.com/tiziano093/infra-composer-cli/compare/v2.1.0...v2.2.0) (2026-05-31)
+
+
+### Features
+
+* expose core logic as public library in pkg/ ([#17](https://github.com/tiziano093/infra-composer-cli/issues/17)) ([518aeb6](https://github.com/tiziano093/infra-composer-cli/commit/518aeb66cf0a6661eab9a0f74ad04496e7b4e2a7))
+
 ## [2.1.0](https://github.com/tiziano093/infra-composer-cli/compare/v2.0.0...v2.1.0) (2026-04-24)
 
 
