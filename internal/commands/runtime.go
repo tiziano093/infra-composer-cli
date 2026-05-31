@@ -9,7 +9,7 @@ import (
 
 	"log/slog"
 
-	"github.com/tiziano093/infra-composer-cli/internal/config"
+	"github.com/tiziano093/infra-composer-cli/v2/internal/config"
 )
 
 // BuildInfo mirrors cli.BuildInfo to avoid a cycle between the two

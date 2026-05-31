@@ -4,7 +4,7 @@
 // working.
 package cli
 
-import "github.com/tiziano093/infra-composer-cli/internal/clierr"
+import "github.com/tiziano093/infra-composer-cli/v2/internal/clierr"
 
 // ExitCode mirrors clierr.ExitCode.
 type ExitCode = clierr.ExitCode

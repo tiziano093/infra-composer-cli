@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gopkg.in/yaml.v3"
 
-	"github.com/tiziano093/infra-composer-cli/internal/clierr"
+	"github.com/tiziano093/infra-composer-cli/v2/internal/clierr"
 )
 
 const ifaceSchemaJSON = `{

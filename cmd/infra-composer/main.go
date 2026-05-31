@@ -5,7 +5,7 @@ import (
 	"context"
 	"os"
 
-	"github.com/tiziano093/infra-composer-cli/internal/cli"
+	"github.com/tiziano093/infra-composer-cli/v2/internal/cli"
 )
 
 // Build-time variables, injected via -ldflags.

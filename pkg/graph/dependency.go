@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/tiziano093/infra-composer-cli/pkg/catalog"
+	"github.com/tiziano093/infra-composer-cli/v2/pkg/catalog"
 )
 
 // Edge is a single dependency edge in the catalog graph: module From

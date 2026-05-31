@@ -1,4 +1,4 @@
-module github.com/tiziano093/infra-composer-cli
+module github.com/tiziano093/infra-composer-cli/v2
 
 go 1.24.0
 

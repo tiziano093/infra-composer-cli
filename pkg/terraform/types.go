@@ -13,7 +13,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 
-	"github.com/tiziano093/infra-composer-cli/pkg/catalog"
+	"github.com/tiziano093/infra-composer-cli/v2/pkg/catalog"
 )
 
 // NestedAttr is one child attribute of a nested block variable as
