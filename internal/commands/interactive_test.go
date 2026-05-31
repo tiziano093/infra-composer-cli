@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/tiziano093/infra-composer-cli/internal/catalog/registry"
+	"github.com/tiziano093/infra-composer-cli/pkg/catalog/registry"
 )
 
 func TestValidateProviderAddress(t *testing.T) {

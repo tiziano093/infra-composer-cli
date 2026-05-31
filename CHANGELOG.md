@@ -43,7 +43,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 - `compose --root-stack` and the root-stack generator
-  (`internal/terraform/rootstack.go`). Rationale: the aggregated
+  (`pkg/terraform/rootstack.go`). Rationale: the aggregated
   `main.tf`/`variables.tf`/`outputs.tf`/`providers.tf` emitted at the
   root of `--output-dir` were a thin skeleton that could not match the
   wide range of real consumption patterns (per-env backend.hcl, tfvars
@@ -81,18 +81,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   subcommand, `version` (text and JSON output).
 - Unit tests for errors, logger, config hierarchy and version
   command (all green via `go test ./...`).
-- `internal/catalog`: schema types (`Schema`, `ModuleEntry`,
+- `pkg/catalog`: schema types (`Schema`, `ModuleEntry`,
   `Variable`, `Output`, `ModuleType`), JSON parser with
   unknown-field rejection, file loader, and one-pass validator
   reporting all issues with field paths.
-- `internal/catalog`: `ParseError` and `ValidationError` types,
+- `pkg/catalog`: `ParseError` and `ValidationError` types,
   plus `AsValidationError` helper for command-layer mapping.
 - `pkg/catalog`: public re-exports of the catalog data types and
   `SchemaVersion` constant for downstream library consumers.
 - Test fixtures under `test/fixtures/schemas/` (valid minimal,
   valid full, malformed, missing provider, duplicate modules)
-  and 94% coverage on `internal/catalog`.
-- `internal/catalog`: keyword search with AND logic over module
+  and 94% coverage on `pkg/catalog`.
+- `pkg/catalog`: keyword search with AND logic over module
   name/group/description, group + type filters, result limit,
   weighted scoring (exact name > substring > group > description >
   fuzzy subsequence) with stable name-ordered tie-breaking.
@@ -113,17 +113,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   reports either an OK summary (provider, version, module count)
   or every validation issue in one pass (text or JSON), exits with
   ExitValidationFailed when issues are found.
-- `internal/catalog/registry`: pluggable registry `Client` interface
+- `pkg/catalog/registry`: pluggable registry `Client` interface
   (DiscoverProvider, ListResources, GetResourceSchema), neutral DTOs,
   and a JSON fixture-backed `FakeClient` used by `catalog build` and
   the integration suite. Sentinel errors `ErrProviderNotFound` and
   `ErrResourceNotFound` for precise error mapping.
 - `test/fixtures/registry/hashicorp/aws/provider.json` covering one
   data source and two resources for builder / E2E tests.
-- `internal/catalog`: `Builder` + `Build()` pipeline (discover → list →
+- `pkg/catalog`: `Builder` + `Build()` pipeline (discover → list →
   fetch → normalize → validate) with deterministic module ordering
   (resources before data, alphabetical within group).
-- `internal/catalog`: `Export()` writes `schema.json` atomically
+- `pkg/catalog`: `Export()` writes `schema.json` atomically
   (tmp + rename) with 0644 permissions and a trailing newline; supports
   both `Path` and `Dir` destinations.
 - `pkg/catalog`: re-exported `Builder`, `BuildOptions`, `ExportOptions`,
@@ -143,13 +143,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - End-to-end integration tests under `test/integration/` covering
   build → validate → list → search → export against the fake registry,
   including error-path exit codes.
-- `internal/catalog`: `Variable.References` field
+- `pkg/catalog`: `Variable.References` field
   (`[]VariableReference{Module, Output}`) declaring explicit
   cross-module dependencies; validator resolves each reference to an
   existing module + output, rejects self-references and unknown
   targets, and reports issues alongside the rest of the schema in a
   single pass. Re-exported via `pkg/catalog`.
-- `internal/catalog`: dependency graph (`BuildGraph`, `Graph`,
+- `pkg/catalog`: dependency graph (`BuildGraph`, `Graph`,
   `Edge`, `DependencyNode`) built from `Variable.References` with
   deterministic node and edge order, 3-colour DFS cycle detector
   returning every elementary cycle in canonical form, and
@@ -161,7 +161,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   or a structured JSON node graph annotated with the parent edge.
   Errors map to `ExitModuleNotFound` (root not in catalog) or
   `ExitDependencyFailed` (cycle, with cycle path in suggestions).
-- `internal/catalog`: `ExtractInterface(schema, opts)` builds a
+- `pkg/catalog`: `ExtractInterface(schema, opts)` builds a
   composer-facing view of a requested module subset, distinguishing
   user-facing inputs from auto-wired inputs satisfied by another
   selected module's output. Per-module + flattened (sorted) aggregate
@@ -172,7 +172,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `test/fixtures/schemas/valid_full.json` extended with an
   `aws_subnet` module wired to `aws_vpc.id` so reference handling has
   on-disk coverage.
-- `internal/terraform`: HCL stack generator built on
+- `pkg/terraform`: HCL stack generator built on
   `hashicorp/hcl/v2/hclwrite`. `Plan(schema, opts)` resolves module
   selection in deps-first order (DFS postorder), wires variable
   references that resolve inside the selection, and surfaces
@@ -195,7 +195,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   is set. Errors map to `ExitModuleNotFound` (unknown module),
   `ExitDependencyFailed` (cycle or ambiguous reference) and
   `ExitInvalidArgs` (missing modules / output-dir).
-- `internal/catalog/registry`: real Terraform CLI source (`terraform_exec.go`)
+- `pkg/catalog/registry`: real Terraform CLI source (`terraform_exec.go`)
   shells out to `terraform providers schema -json`, caches raw output on disk,
   supports `--include`/`--exclude` glob patterns. HTTP registry client (`http.go`)
   hits registry.terraform.io for version listing. Schema translator (`translate.go`)
@@ -203,7 +203,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `internal/commands/interactive`: guided multi-step workflow (survey/v2) —
   provider choice, version pinning, resource multi-select, catalog write,
   optional compose trigger. Gated behind `--output-dir` (required).
-- `internal/terraform/rootstack`: root-stack HCL generator emitting
+- `pkg/terraform/rootstack`: root-stack HCL generator emitting
   `providers.tf`, `versions.tf`, `variables.tf`, `locals.tf`, `main.tf`,
   `outputs.tf` that compose the per-module folders.
 - `internal/git`: remote detection (`remote.go`) and Git tag listing (`tags.go`)
@@ -215,7 +215,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - `compose` subcommand extended with `--root-stack` flag (default `true`) to
   control whether the top-level stack files are emitted.
-- `internal/terraform/{generator,plan,naming,types}` refactored: `source.go`
+- `pkg/terraform/{generator,plan,naming,types}` refactored: `source.go`
   deleted; source resolution moved into the registry package.
 - `pkg/catalog/types.go` extended with registry-related public types.
 - `.gitignore`: generated `catalog/` and `infrastructure/` directories excluded.

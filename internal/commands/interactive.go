@@ -15,8 +15,8 @@ import (
 	"github.com/AlecAivazis/survey/v2/terminal"
 	"github.com/spf13/cobra"
 
-	"github.com/tiziano093/infra-composer-cli/internal/catalog"
-	"github.com/tiziano093/infra-composer-cli/internal/catalog/registry"
+	"github.com/tiziano093/infra-composer-cli/pkg/catalog"
+	"github.com/tiziano093/infra-composer-cli/pkg/catalog/registry"
 	"github.com/tiziano093/infra-composer-cli/internal/clierr"
 )
 

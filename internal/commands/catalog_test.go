@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/tiziano093/infra-composer-cli/internal/catalog"
+	"github.com/tiziano093/infra-composer-cli/pkg/catalog"
 	"github.com/tiziano093/infra-composer-cli/internal/clierr"
 	"github.com/tiziano093/infra-composer-cli/internal/config"
 )

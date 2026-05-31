@@ -10,9 +10,10 @@ import (
 	"runtime"
 	"testing"
 
-	"github.com/tiziano093/infra-composer-cli/internal/catalog"
+	"github.com/tiziano093/infra-composer-cli/pkg/catalog"
 	"github.com/tiziano093/infra-composer-cli/internal/cli"
-	"github.com/tiziano093/infra-composer-cli/internal/terraform"
+	"github.com/tiziano093/infra-composer-cli/pkg/graph"
+	"github.com/tiziano093/infra-composer-cli/pkg/terraform"
 )
 
 func fixturesDir() string {
@@ -66,7 +67,7 @@ func BenchmarkDependencyGraph(b *testing.B) {
 	s := validFullSchema(b)
 	b.ResetTimer()
 	for range b.N {
-		_ = catalog.BuildGraph(s)
+		_ = graph.BuildGraph(s)
 	}
 }
 

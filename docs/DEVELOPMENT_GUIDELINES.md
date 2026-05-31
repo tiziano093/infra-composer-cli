@@ -11,8 +11,8 @@
 
 ### 1. Single Responsibility
 Each package should have one clear purpose:
-- `internal/catalog/` → Catalog logic
-- `internal/terraform/` → Terraform generation
+- `pkg/catalog/` → Catalog logic
+- `pkg/terraform/` → Terraform generation
 - `internal/config/` → Configuration loading
 - `internal/output/` → Output formatting
 

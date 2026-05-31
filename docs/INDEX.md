@@ -68,8 +68,8 @@
 - Extension points
 
 **Key Files Detailed:**
-- `internal/catalog/` — Catalog domain logic
-- `internal/terraform/` — TF generation
+- `pkg/catalog/` — Catalog domain logic
+- `pkg/terraform/` — TF generation
 - `internal/commands/` — Command handlers
 - `internal/config/` — Configuration loading
 - `pkg/` — Public API

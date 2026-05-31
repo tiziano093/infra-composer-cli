@@ -122,12 +122,12 @@ func (c *CatalogCommand) Execute(ctx context.Context, args []string) error {
 
 ---
 
-### `internal/catalog/`
+### `pkg/catalog/`
 **Purpose:** Catalog management domain  
 **Responsibility:** Build, parse, search, validate catalog schemas
 
 ```
-internal/catalog/
+pkg/catalog/
 ├── schema.go            # Schema types, parsing, validation
 ├── builder.go           # Build pipeline (discover → crawl → normalize → export)
 ├── exporter.go          # Export normalized catalog to schema.json
@@ -177,12 +177,12 @@ type ModuleEntry struct {
 
 ---
 
-### `internal/terraform/`
+### `pkg/terraform/`
 **Purpose:** Terraform code generation  
 **Responsibility:** Generate HCL files + support files
 
 ```
-internal/terraform/
+pkg/terraform/
 ├── generator.go         # Main generator: orchestrates file generation
 ├── templates.go         # HCL template definitions
 ├── support.go           # Support files (CI/CD, tflint, terraform-docs, tfvars)

@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/tiziano093/infra-composer-cli/internal/catalog"
+	"github.com/tiziano093/infra-composer-cli/pkg/catalog"
 )
 
 // ManifestFileName is the on-disk name of the compose manifest emitted
