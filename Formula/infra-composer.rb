@@ -5,21 +5,21 @@
 class InfraComposer < Formula
   desc "Portable CLI for composing Terraform stacks from provider catalogs."
   homepage "https://github.com/tiziano093/infra-composer-cli"
-  version "2.2.0"
+  version "2.3.0"
   license "Apache-2.0"
 
   on_macos do
     if Hardware::CPU.intel?
-      url "https://github.com/tiziano093/infra-composer-cli/releases/download/v2.2.0/infra-composer_2.2.0_darwin_amd64.tar.gz"
-      sha256 "f0ba38128aa6cded60d06b476cb5d295893fb7a620699fb9432ac7d9a6e128bf"
+      url "https://github.com/tiziano093/infra-composer-cli/releases/download/v2.3.0/infra-composer_2.3.0_darwin_amd64.tar.gz"
+      sha256 "483f8a9dea56316fe19ccf0afbb9ef9511f7c8299ff76f791969ae0ae2d9e6fb"
 
       define_method(:install) do
         bin.install "infra-composer"
       end
     end
     if Hardware::CPU.arm?
-      url "https://github.com/tiziano093/infra-composer-cli/releases/download/v2.2.0/infra-composer_2.2.0_darwin_arm64.tar.gz"
-      sha256 "0a81f46fe5658ea9ca3ff60a7044814ac903b8086072374716b09107b714391f"
+      url "https://github.com/tiziano093/infra-composer-cli/releases/download/v2.3.0/infra-composer_2.3.0_darwin_arm64.tar.gz"
+      sha256 "55484b7a66c907f8a35d58e1376cc5654313de93fcf3b21c30c7668bdc307955"
 
       define_method(:install) do
         bin.install "infra-composer"
@@ -29,15 +29,15 @@ class InfraComposer < Formula
 
   on_linux do
     if Hardware::CPU.intel? && Hardware::CPU.is_64_bit?
-      url "https://github.com/tiziano093/infra-composer-cli/releases/download/v2.2.0/infra-composer_2.2.0_linux_amd64.tar.gz"
-      sha256 "84577983a654defd228ca775c79d4e784485743f6edb7d69c6985f829df7f820"
+      url "https://github.com/tiziano093/infra-composer-cli/releases/download/v2.3.0/infra-composer_2.3.0_linux_amd64.tar.gz"
+      sha256 "c346ce96ab4ba560940f6b71fda6961e0b5368af0204aed5ac1e06658da04f8f"
       define_method(:install) do
         bin.install "infra-composer"
       end
     end
     if Hardware::CPU.arm? && Hardware::CPU.is_64_bit?
-      url "https://github.com/tiziano093/infra-composer-cli/releases/download/v2.2.0/infra-composer_2.2.0_linux_arm64.tar.gz"
-      sha256 "56fe13ff64f2b4ac1a3e4bb3c6a8f7e2809887697cdef51f235f6a6f96d7800f"
+      url "https://github.com/tiziano093/infra-composer-cli/releases/download/v2.3.0/infra-composer_2.3.0_linux_arm64.tar.gz"
+      sha256 "31d2c74b89536dae79ca1a31a3b4b305f13e0f167c699ed8c30bc82533fb9926"
       define_method(:install) do
         bin.install "infra-composer"
       end
